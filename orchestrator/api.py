@@ -5,7 +5,9 @@ This module provides a FastAPI interface for the Expeta system.
 """
 
 import os
+import sys
 import json
+import importlib.util
 from typing import Dict, Any, Optional, List
 
 from fastapi import FastAPI, HTTPException, Body
@@ -13,6 +15,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .orchestrator import Expeta
+
+required_packages = ['openai', 'anthropic', 'yaml']
+missing_packages = []
+
+for package in required_packages:
+    if importlib.util.find_spec(package) is None:
+        missing_packages.append(package)
+
+if missing_packages:
+    print(f"Missing required packages: {', '.join(missing_packages)}")
+    print("Running in mock mode (simulating component behavior)...")
+    MOCK_MODE = True
+else:
+    MOCK_MODE = False
+
+if not os.environ.get("OPENAI_API_KEY") and not os.environ.get("ANTHROPIC_API_KEY"):
+    print("No API keys found for LLM providers. Running in mock mode.")
+    MOCK_MODE = True
 
 app = FastAPI(
     title="Expeta API",
@@ -28,7 +48,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-expeta = Expeta()
+config = {"mock_mode": MOCK_MODE}
+expeta = Expeta(config=config)
 
 class RequirementRequest(BaseModel):
     text: str

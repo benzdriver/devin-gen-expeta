@@ -15,6 +15,10 @@ class Expeta:
             config: Optional configuration dictionary
         """
         self.config = config or self._load_default_config()
+        
+        self.mock_mode = self.config.get("mock_mode", False)
+        if self.mock_mode:
+            print("Expeta initialized in mock mode - using simulated responses")
 
         self._clarifier = None
         self._generator = None
@@ -98,6 +102,10 @@ class Expeta:
         Returns:
             Dictionary with processing results
         """
+        if self.mock_mode:
+            from ._mock_data import get_mock_requirement_result
+            return get_mock_requirement_result(requirement_text)
+        
         clarification = self.clarifier.clarify_requirement(requirement_text)
 
         code_generation = self.generator.generate(clarification["top_level_expectation"])
@@ -128,6 +136,10 @@ class Expeta:
         Returns:
             Dictionary with processing results
         """
+        if self.mock_mode:
+            from ._mock_data import get_mock_expectation_result
+            return get_mock_expectation_result(expectation)
+            
         code_generation = self.generator.generate(expectation)
 
         validation = self.validator.validate(
