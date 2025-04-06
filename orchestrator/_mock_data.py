@@ -82,5 +82,13 @@ def get_mock_expectation_result(expectation):
             "semantic_match": {"match_score": 0.98},
             "test_results": {"pass_rate": 1.0}
         },
-        "success": True
+        "success": True,
+        "clarification": {
+            "top_level_expectation": expectation,
+            "sub_expectations": [
+                {"name": "Input Validation"}, 
+                {"name": f"{function_name.title()} Implementation"}, 
+                {"name": "Error Handling"}
+            ]
+        }
     }
