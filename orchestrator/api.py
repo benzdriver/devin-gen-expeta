@@ -104,7 +104,14 @@ async def process_expectation(request: ExpectationRequest):
     try:
         if MOCK_MODE:
             from orchestrator._mock_data import get_mock_expectation_result
-            return get_mock_expectation_result(request.expectation)
+            mock_result = get_mock_expectation_result(request.expectation)
+            return {
+                "expectation": request.expectation,
+                "generation": mock_result["generation"],
+                "validation": mock_result["validation"],
+                "success": mock_result["validation"].get("passed", False),
+                "clarification": mock_result.get("clarification", {})
+            }
         result = expeta.process_expectation(request.expectation)
         return result
     except Exception as e:
