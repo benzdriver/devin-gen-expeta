@@ -46,9 +46,21 @@ class OpenAIProvider:
         """Initialize OpenAI client"""
         try:
             import openai
-            self.client = openai.OpenAI(
-                api_key=self.config.get("api_key")
-            )
+            import os
+            from utils.env_loader import load_dotenv
+            
+            load_dotenv()
+            
+            api_key = self.config.get("api_key") or os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OpenAI API key not found. Set it in config or OPENAI_API_KEY environment variable.")
+            
+            org_id = os.environ.get("OPENAI_ORGANIZATION")
+            client_args = {"api_key": api_key}
+            if org_id:
+                client_args["organization"] = org_id
+                
+            self.client = openai.OpenAI(**client_args)
         except ImportError:
             raise ImportError("OpenAI package not installed. Install with 'pip install openai'")
         except Exception as e:

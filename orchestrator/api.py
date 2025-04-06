@@ -10,6 +10,12 @@ import json
 import importlib.util
 from typing import Dict, Any, Optional, List
 
+try:
+    from utils.env_loader import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("Environment loader not available, using system environment variables.")
+
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel

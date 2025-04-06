@@ -17,6 +17,9 @@ class LLMRouter:
         self.config = config or self._load_default_config()
         self.providers = self._initialize_providers()
         self._request_history = []
+        
+        from utils.token_tracker import TokenTracker
+        self.token_tracker = TokenTracker()
 
     def generate(self, prompt, options=None):
         """Generate text response from LLM
@@ -35,7 +38,11 @@ class LLMRouter:
         request = self._prepare_request(prompt, opts)
 
         response = provider.send_request(request)
-
+        
+        if "usage" in response and not response.get("error", False):
+            self.token_tracker.track_usage(response["provider"], response["usage"], 
+                                        operation="generate", model=response.get("model"))
+        
         self._record_request(prompt, opts, response)
 
         return response
@@ -64,7 +71,7 @@ class LLMRouter:
             Default configuration dictionary
         """
         return {
-            "default_provider": "openai",
+            "default_provider": "anthropic",
             "providers": {
                 "openai": {
                     "model": "gpt-4",
@@ -72,7 +79,7 @@ class LLMRouter:
                     "max_tokens": 1000
                 },
                 "anthropic": {
-                    "model": "claude-2",
+                    "model": "claude-3-sonnet-20240229",
                     "temperature": 0.7,
                     "max_tokens": 1000
                 },
@@ -82,7 +89,7 @@ class LLMRouter:
                     "max_tokens": 1000
                 }
             },
-            "fallback_order": ["openai", "anthropic", "local"]
+            "fallback_order": ["anthropic", "openai", "local"]
         }
         
     def _initialize_providers(self):

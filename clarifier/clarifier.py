@@ -206,8 +206,23 @@ class Clarifier:
         import yaml
         try:
             expectation = yaml.safe_load(yaml_content)
+            if expectation is None:
+                expectation = {
+                    "name": "Default Expectation",
+                    "description": "Generated from unparseable response",
+                    "acceptance_criteria": [],
+                    "constraints": []
+                }
         except Exception:
             expectation = self._simple_parse_expectation(content)
+        
+        if not isinstance(expectation, dict):
+            expectation = {
+                "name": "Default Expectation",
+                "description": str(expectation) if expectation else "Generated from unparseable response",
+                "acceptance_criteria": [],
+                "constraints": []
+            }
             
         return expectation
         
@@ -237,11 +252,27 @@ class Clarifier:
                 
             sub_expectations = yaml.safe_load(yaml_content)
             
-            if not isinstance(sub_expectations, list):
+            if sub_expectations is None:
+                sub_expectations = [{
+                    "name": "Default Sub-Expectation",
+                    "description": "Generated from unparseable response",
+                    "acceptance_criteria": [],
+                    "constraints": []
+                }]
+            elif not isinstance(sub_expectations, list):
                 sub_expectations = [sub_expectations]
                 
         except Exception:
             sub_expectations = self._simple_parse_sub_expectations(content)
+        
+        for i, sub_exp in enumerate(sub_expectations):
+            if sub_exp is None or not isinstance(sub_exp, dict):
+                sub_expectations[i] = {
+                    "name": f"Default Sub-Expectation {i+1}",
+                    "description": str(sub_exp) if sub_exp else "Generated from unparseable response",
+                    "acceptance_criteria": [],
+                    "constraints": []
+                }
             
         return sub_expectations
         

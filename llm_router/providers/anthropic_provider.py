@@ -46,9 +46,16 @@ class AnthropicProvider:
         """Initialize Anthropic client"""
         try:
             import anthropic
-            self.client = anthropic.Anthropic(
-                api_key=self.config.get("api_key")
-            )
+            import os
+            from utils.env_loader import load_dotenv
+            
+            load_dotenv()
+            
+            api_key = self.config.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise ValueError("Anthropic API key not found. Set it in config or ANTHROPIC_API_KEY environment variable.")
+            
+            self.client = anthropic.Anthropic(api_key=api_key)
         except ImportError:
             raise ImportError("Anthropic package not installed. Install with 'pip install anthropic'")
         except Exception as e:
@@ -64,7 +71,7 @@ class AnthropicProvider:
             Parameters dictionary for API call
         """
         params = {
-            "model": self.config.get("model", "claude-2"),
+            "model": self.config.get("model", "claude-3-sonnet-20240229"),
             "temperature": self.config.get("temperature", 0.7),
             "max_tokens": self.config.get("max_tokens", 1000)
         }
