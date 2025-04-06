@@ -102,6 +102,9 @@ async def process_requirement(request: RequirementRequest):
 async def process_expectation(request: ExpectationRequest):
     """Process an expectation directly (skip requirement clarification)"""
     try:
+        if MOCK_MODE:
+            from orchestrator._mock_data import get_mock_expectation_result
+            return get_mock_expectation_result(request.expectation)
         result = expeta.process_expectation(request.expectation)
         return result
     except Exception as e:
@@ -111,6 +114,10 @@ async def process_expectation(request: ExpectationRequest):
 async def clarify_requirement(request: RequirementRequest):
     """Clarify a natural language requirement"""
     try:
+        if MOCK_MODE:
+            from orchestrator._mock_data import get_mock_requirement_result
+            result = get_mock_requirement_result(request.text)
+            return result["clarification"]
         result = expeta.clarifier.clarify_requirement(request.text)
         expeta.clarifier.sync_to_memory(expeta.memory_system)
         return result
@@ -121,6 +128,10 @@ async def clarify_requirement(request: RequirementRequest):
 async def generate_code(expectation: Dict[str, Any] = Body(...)):
     """Generate code from an expectation"""
     try:
+        if MOCK_MODE:
+            from orchestrator._mock_data import get_mock_expectation_result
+            result = get_mock_expectation_result(expectation)
+            return result["generation"]
         result = expeta.generator.generate(expectation)
         expeta.generator.sync_to_memory(expeta.memory_system)
         return result
@@ -134,6 +145,15 @@ async def validate_code(
 ):
     """Validate code against an expectation"""
     try:
+        if MOCK_MODE:
+            return {
+                "passed": True,
+                "semantic_match": {"match_score": 0.95},
+                "test_results": {"pass_rate": 1.0},
+                "validation_id": f"val-{hash(str(expectation)) % 10000}",
+                "expectation_id": expectation.get("id", "exp-unknown"),
+                "timestamp": "2023-04-06T12:35:56Z"
+            }
         result = expeta.validator.validate(code, expectation)
         expeta.validator.sync_to_memory(expeta.memory_system)
         return result
@@ -144,6 +164,14 @@ async def validate_code(
 async def get_expectation(expectation_id: str):
     """Get expectation by ID"""
     try:
+        if MOCK_MODE and expectation_id.startswith("exp-test"):
+            return {
+                "id": expectation_id,
+                "name": "Test Expectation",
+                "description": "A test expectation for mock mode",
+                "acceptance_criteria": ["Must handle edge cases", "Must be efficient"],
+                "timestamp": "2023-04-06T12:30:45Z"
+            }
         result = expeta.memory_system.get_expectation(expectation_id)
         if not result:
             raise HTTPException(status_code=404, detail="Expectation not found")
@@ -155,6 +183,20 @@ async def get_expectation(expectation_id: str):
 async def get_generation(expectation_id: str):
     """Get code generation for an expectation"""
     try:
+        if MOCK_MODE and expectation_id.startswith("exp-test"):
+            return {
+                "expectation_id": expectation_id,
+                "generated_code": {
+                    "language": "python",
+                    "files": [
+                        {
+                            "path": "test_function.py",
+                            "content": "def test_function(data):\n    \"\"\"Test function implementation\"\"\"\n    return data"
+                        }
+                    ]
+                },
+                "timestamp": "2023-04-06T12:32:15Z"
+            }
         result = expeta.memory_system.get_code_for_expectation(expectation_id)
         if not result:
             raise HTTPException(status_code=404, detail="Generation not found")
@@ -166,6 +208,15 @@ async def get_generation(expectation_id: str):
 async def get_validation(expectation_id: str):
     """Get validation results for an expectation"""
     try:
+        if MOCK_MODE and expectation_id.startswith("exp-test"):
+            return {
+                "expectation_id": expectation_id,
+                "validation_id": f"val-{hash(expectation_id) % 10000}",
+                "passed": True,
+                "semantic_match": {"match_score": 0.95},
+                "test_results": {"pass_rate": 1.0},
+                "timestamp": "2023-04-06T12:35:56Z"
+            }
         result = expeta.memory_system.get_validation_results(expectation_id=expectation_id)
         if not result:
             raise HTTPException(status_code=404, detail="Validation not found")
