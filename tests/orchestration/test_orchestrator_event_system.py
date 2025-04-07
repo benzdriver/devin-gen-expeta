@@ -121,7 +121,7 @@ class TestOrchestratorEventSystemIntegration(unittest.TestCase):
         
         self.system_monitor.register_component("test-component", component_info)
         
-        self.system_monitor.check_component_health("test-component")
+        self.system_monitor._check_component_health()
         
         self.assertEqual(len(system_events), 2)
         
@@ -209,13 +209,6 @@ class TestOrchestratorEventSystemIntegration(unittest.TestCase):
         
         handler = WorkflowTriggerHandler(self.event_bus, self.workflow_engine)
         
-        self.event_bus.register_event_type("custom.event", {
-            "type": "object",
-            "properties": {
-                "message": {"type": "string"}
-            },
-            "required": ["message"]
-        })
         
         self.event_bus.subscribe("custom.event", handler.handle_event)
         
@@ -231,15 +224,6 @@ class TestOrchestratorEventSystemIntegration(unittest.TestCase):
     
     def test_event_based_error_handling(self):
         """Test error handling through events"""
-        self.event_bus.register_event_type("system.error", {
-            "type": "object",
-            "properties": {
-                "source": {"type": "string"},
-                "error": {"type": "string"},
-                "original_event": {"type": "object"}
-            },
-            "required": ["source", "error"]
-        })
         
         errors = []
         
@@ -254,7 +238,6 @@ class TestOrchestratorEventSystemIntegration(unittest.TestCase):
         
         handler = ErrorHandler(self.event_bus)
         
-        self.event_bus.register_event_type("test.event", {})
         self.event_bus.subscribe("test.event", handler.handle_event)
         
         self.event_bus.publish("test.event", {})
