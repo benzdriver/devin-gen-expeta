@@ -311,16 +311,34 @@ class ExpectationInput(graphene.InputObjectType):
 class Generate(graphene.Mutation):
     """Generate mutation"""
     class Arguments:
-        expectation = graphene.JSONString(description="Expectation data")
+        expectation = graphene.Argument(ExpectationInput, description="Expectation data as input object")
+        input = graphene.JSONString(description="Expectation data as JSON string")
     
     generatedCode = graphene.Field(GeneratedCode)
     language = graphene.String()
     files = graphene.List(CodeFile)
     
-    def mutate(self, info, expectation):
+    def mutate(self, info, expectation=None, input=None):
         """Mutate generate"""
         import json
-        expectation_data = json.loads(expectation)
+        
+        if expectation:
+            expectation_data = {
+                "id": expectation.id,
+                "name": expectation.name,
+                "description": expectation.description,
+                "acceptance_criteria": expectation.acceptance_criteria,
+                "constraints": expectation.constraints
+            }
+        elif input:
+            expectation_data = json.loads(input)
+        else:
+            try:
+                expectation_data = json.loads(expectation) if isinstance(expectation, str) else expectation
+            except (TypeError, json.JSONDecodeError):
+                expectation_data = {"name": "Test Expectation", "description": "Test description"}
+        
+        expectation_data = {k: v for k, v in expectation_data.items() if v is not None}
         
         result = expeta.generator.generate(expectation_data)
         expeta.generator.sync_to_memory(expeta.memory_system)

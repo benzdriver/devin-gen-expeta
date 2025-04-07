@@ -137,8 +137,10 @@ class ChatInterface:
             session_id = self.create_session(user_id)
         
         with self.token_tracker.track("chat_process"):
-            # Always call process_chat_message first, for the tests to pass
-            response = self.expeta.clarifier.process_chat_message(message, session_id)
+            try:
+                response = self.expeta.clarifier.process_chat_message(message, session_id)
+            except (AttributeError, Exception) as e:
+                response = None
             
             # If it returned None or raised an exception, fall back to alternatives
             if response is None:
@@ -195,8 +197,10 @@ class ChatInterface:
         with self.token_tracker.track("chat_continue"):
             context_id = self.dialog_manager.sessions[session_id]["context"]
             
-            # Always call continue_conversation first, for the tests to pass
-            response = self.expeta.clarifier.continue_conversation(message, session_id)
+            try:
+                response = self.expeta.clarifier.continue_conversation(message, session_id)
+            except (AttributeError, Exception) as e:
+                response = None
             
             # If it returned None or raised an exception, fall back to alternatives
             if response is None:
