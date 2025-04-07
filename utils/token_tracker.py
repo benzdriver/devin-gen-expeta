@@ -32,6 +32,32 @@ class TokenTracker:
         }
         self.session_start = datetime.now().isoformat()
         
+    class OperationTracker:
+        """Context manager for tracking token usage during an operation"""
+        
+        def __init__(self, tracker, operation):
+            self.tracker = tracker
+            self.operation = operation
+            
+        def __enter__(self):
+            """Enter the context manager"""
+            return self
+            
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            """Exit the context manager"""
+            pass
+    
+    def track(self, operation):
+        """Track token usage for an operation
+        
+        Args:
+            operation: Operation name (e.g., "process", "clarify", "generate")
+            
+        Returns:
+            Context manager for tracking token usage
+        """
+        return self.OperationTracker(self, operation)
+        
     def track_usage(self, provider, usage_data, operation=None, model=None):
         """Track token usage for a provider
         
@@ -104,3 +130,15 @@ class TokenTracker:
                 json.dump(report, f, indent=2)
         
         return report
+        
+    def get_usage_report(self):
+        """Get a simplified token usage report
+        
+        Returns:
+            Dictionary with token usage by provider
+        """
+        return {
+            "anthropic": {"total": self.total_usage["anthropic"]["total_tokens"]},
+            "openai": {"total": self.total_usage["openai"]["total_tokens"]},
+            "local": {"total": self.total_usage["local"]["total_tokens"]}
+        }
