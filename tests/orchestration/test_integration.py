@@ -285,7 +285,7 @@ class TestOrchestrationLayerIntegration(unittest.TestCase):
             headers
         )
         
-        self.assertEqual(status_code, 500)
+        self.assertEqual(status_code, 403)
         self.assertIn("error", response)
         self.assertIn("not authorized", response["error"])
     

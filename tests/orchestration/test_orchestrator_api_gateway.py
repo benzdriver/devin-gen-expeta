@@ -424,7 +424,7 @@ class TestOrchestratorApiGatewayIntegration(unittest.TestCase):
             headers
         )
         
-        self.assertEqual(status_code, 500)
+        self.assertEqual(status_code, 403)
         self.assertIn("error", response)
     
     def test_middleware_integration(self):
