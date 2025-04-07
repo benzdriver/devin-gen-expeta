@@ -1,0 +1,37 @@
+name: "Orchestrator"
+description: "Coordinates the overall workflow, acting as the system's central hub"
+acceptance_criteria:
+  - "Must coordinate all system components"
+  - "Must manage task lifecycle"
+  - "Must execute workflows"
+  - "Must monitor system status"
+  - "Must handle errors gracefully"
+constraints:
+  - "Must be modular and extensible"
+  - "Must support asynchronous operations"
+  - "Must maintain state across operations"
+components:
+  - name: "TaskManager"
+    description: "Manages task lifecycle"
+    acceptance_criteria:
+      - "Must create, update, and track tasks"
+      - "Must assign unique identifiers to tasks"
+      - "Must maintain task state"
+      - "Must support task prioritization"
+    path: "expeta/orchestrator/task_manager.py"
+  - name: "WorkflowEngine"
+    description: "Defines and executes workflows"
+    acceptance_criteria:
+      - "Must define workflow steps"
+      - "Must execute workflow steps in order"
+      - "Must handle conditional workflows"
+      - "Must support parallel execution"
+    path: "expeta/orchestrator/workflow_engine.py"
+  - name: "SystemMonitor"
+    description: "Monitors system status"
+    acceptance_criteria:
+      - "Must track component health"
+      - "Must report system metrics"
+      - "Must detect and report errors"
+      - "Must support alerting"
+    path: "expeta/orchestrator/system_monitor.py"
