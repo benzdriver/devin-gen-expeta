@@ -389,8 +389,8 @@ class TestOrchestratorApiGatewayIntegration(unittest.TestCase):
         limited_token = self.auth_manager.generate_token("limited-user")
         
         def secure_handler(data):
-            user = data["user"]
-            if not self.auth_manager.authorize(user["id"], "workflow.execute"):
+            user = data.get("user", {})
+            if not user or not self.auth_manager.authorize(user.get("id"), "workflow.execute"):
                 raise PermissionError("User not authorized")
             
             return {"success": True}

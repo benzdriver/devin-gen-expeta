@@ -221,8 +221,8 @@ class TestOrchestrationLayerIntegration(unittest.TestCase):
     def test_authentication_authorization(self):
         """Test authentication and authorization integration"""
         def execute_workflow_handler(data):
-            user = data["user"]
-            if not self.auth_manager.authorize(user["id"], "workflow.execute"):
+            user = data.get("user", {})
+            if not user or not self.auth_manager.authorize(user.get("id"), "workflow.execute"):
                 raise PermissionError("User not authorized to execute workflows")
             
             return {"execution_id": self.workflow_engine.execute_workflow(data["workflow_id"], data.get("parameters", {}))}
@@ -318,11 +318,11 @@ class TestOrchestrationLayerIntegration(unittest.TestCase):
         workflow_progress = []
         
         def track_workflow_progress(event):
-            if event["type"].startswith("workflow.step."):
+            if event["type"].startswith("workflow.execution.step."):
                 workflow_progress.append(event["data"])
         
-        self.event_bus.subscribe("workflow.step.started", track_workflow_progress)
-        self.event_bus.subscribe("workflow.step.completed", track_workflow_progress)
+        self.event_bus.subscribe("workflow.execution.step.started", track_workflow_progress)
+        self.event_bus.subscribe("workflow.execution.step.completed", track_workflow_progress)
         
         self.request_router.register_route(
             "/workflows/{workflow_id}/execute",
@@ -356,6 +356,7 @@ class TestOrchestrationLayerIntegration(unittest.TestCase):
         self.assertEqual(len(execution["results"]), 3)
         
         final_result = execution["results"][2]["result"]
+        self.assertIn("output", final_result)
         self.assertEqual(final_result["output"], "Output: Processed: test input")
         
         self.assertGreaterEqual(len(workflow_progress), 6)  # 3 steps x 2 events (started, completed)
