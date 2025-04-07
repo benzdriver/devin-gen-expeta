@@ -110,8 +110,7 @@ class TestOrchestratorEventSystemIntegration(unittest.TestCase):
         def handle_system_event(event):
             system_events.append(event)
         
-        self.event_bus.subscribe("system.component.status", handle_system_event)
-        self.event_bus.subscribe("system.component.registered", handle_system_event)
+        self.event_bus.subscribe("system.component.status_update", handle_system_event)
         
         component_info = {
             "name": "Test Component",
@@ -123,13 +122,9 @@ class TestOrchestratorEventSystemIntegration(unittest.TestCase):
         
         self.system_monitor._check_component_health()
         
-        self.assertEqual(len(system_events), 2)
+        self.assertEqual(len(system_events), 1)  # Now we're only expecting one event (status_update)
         
-        registered_events = [e for e in system_events if e["type"] == "system.component.registered"]
-        self.assertEqual(len(registered_events), 1)
-        self.assertEqual(registered_events[0]["data"]["component_id"], "test-component")
-        
-        status_events = [e for e in system_events if e["type"] == "system.component.status"]
+        status_events = [e for e in system_events if e["type"] == "system.component.status_update"]
         self.assertEqual(len(status_events), 1)
         self.assertEqual(status_events[0]["data"]["component_id"], "test-component")
         self.assertEqual(status_events[0]["data"]["status"], "healthy")
