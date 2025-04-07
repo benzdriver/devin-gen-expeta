@@ -32,20 +32,35 @@ class LLMRouter:
             The response from the LLM
         """
         opts = self._merge_options(options)
-
-        provider = self._select_provider(opts)
-
         request = self._prepare_request(prompt, opts)
-
-        response = provider.send_request(request)
         
-        if "usage" in response and not response.get("error", False):
-            self.token_tracker.track_usage(response["provider"], response["usage"], 
-                                        operation="generate", model=response.get("model"))
+        fallback_order = self.config.get("fallback_order", list(self.providers.keys()))
         
-        self._record_request(prompt, opts, response)
-
-        return response
+        last_error = None
+        for provider_name in fallback_order:
+            if provider_name not in self.providers:
+                continue
+                
+            provider = self.providers[provider_name]
+            
+            try:
+                response = provider.send_request(request)
+                
+                if "usage" in response and not response.get("error", False):
+                    self.token_tracker.track_usage(response["provider"], response["usage"], 
+                                                operation="generate", model=response.get("model"))
+                
+                self._record_request(prompt, opts, response)
+                return response
+                
+            except Exception as e:
+                last_error = e
+                continue  # Try next provider
+        
+        if last_error:
+            raise ValueError(f"All LLM providers failed. Last error: {str(last_error)}")
+        else:
+            raise ValueError("No LLM providers available")
 
     def sync_to_memory(self, memory_system):
         """Sync request history to memory system (delayed call)
