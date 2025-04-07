@@ -90,7 +90,18 @@ class RequestRouter:
             if request_data is None:
                 request_data = {}
             
-            request_data["user"] = auth_result.get("user")
+            try:
+                import jwt
+                token = auth_token
+                if token.startswith("Bearer "):
+                    token = token[7:]
+                payload = jwt.decode(token, self.auth_manager.secret_key, algorithms=["HS256"])
+                user_id = payload.get("sub")
+                
+                request_data["user"] = auth_result.get("user")
+                request_data["user"]["user_id"] = user_id
+            except Exception as e:
+                self.logger.error(f"Error extracting user_id from token: {str(e)}")
         
         try:
             response = route["handler"](request_data)
@@ -99,6 +110,15 @@ class RequestRouter:
                 response = self.response_formatter.format_response(response, path, method, version)
             
             return 200, response
+        except PermissionError as e:
+            self.logger.error(f"Authorization error handling request {path} {method}: {str(e)}")
+            
+            error_response = {"error": str(e)}
+            
+            if self.response_formatter:
+                error_response = self.response_formatter.format_error(error_response, path, method, version)
+            
+            return 403, error_response
         except Exception as e:
             self.logger.error(f"Error handling request {path} {method}: {str(e)}")
             
