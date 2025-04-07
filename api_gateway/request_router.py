@@ -64,12 +64,15 @@ class RequestRouter:
         Returns:
             Tuple of (status_code, response_data)
         """
-        route_key = self._get_route_key(path, method, version)
+        route = self._match_route(path, method, version)
         
-        if route_key not in self.routes:
+        if not route:
             return 404, {"error": "Not found"}
         
-        route = self.routes[route_key]
+        if "path_params" in route and route["path_params"]:
+            if request_data is None:
+                request_data = {}
+            request_data.update(route["path_params"])
         
         modified_request = self._apply_middleware(path, method, request_data, headers, version)
         if modified_request:
@@ -118,6 +121,54 @@ class RequestRouter:
             Route key
         """
         return f"{version}:{method.upper()}:{path}"
+        
+    def _match_route(self, request_path: str, method: str, version: str) -> Optional[Dict[str, Any]]:
+        """Match a request path to a route
+        
+        Args:
+            request_path: Request path
+            method: HTTP method
+            version: API version
+            
+        Returns:
+            Matched route or None if no match
+        """
+        route_key = self._get_route_key(request_path, method, version)
+        if route_key in self.routes:
+            return self.routes[route_key]
+        
+        for route_key, route in self.routes.items():
+            route_path = route["path"]
+            route_method = route["method"]
+            route_version = route["version"]
+            
+            if method.upper() != route_method.upper() or version != route_version:
+                continue
+            
+            if "{" not in route_path:
+                continue
+            
+            route_segments = route_path.split("/")
+            request_segments = request_path.split("/")
+            
+            if len(route_segments) != len(request_segments):
+                continue
+            
+            match = True
+            path_params = {}
+            
+            for i, (route_segment, request_segment) in enumerate(zip(route_segments, request_segments)):
+                if route_segment.startswith("{") and route_segment.endswith("}"):
+                    param_name = route_segment[1:-1]
+                    path_params[param_name] = request_segment
+                elif route_segment != request_segment:
+                    match = False
+                    break
+            
+            if match:
+                return {**route, "path_params": path_params}
+        
+        return None
     
     def _apply_middleware(self, path: str, method: str, request_data: Dict[str, Any], headers: Dict[str, str], version: str) -> Optional[Dict[str, Any]]:
         """Apply middleware to request
