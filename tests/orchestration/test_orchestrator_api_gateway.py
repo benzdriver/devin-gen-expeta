@@ -390,7 +390,8 @@ class TestOrchestratorApiGatewayIntegration(unittest.TestCase):
         
         def secure_handler(data):
             user = data.get("user", {})
-            if not user or not self.auth_manager.authorize(user.get("id"), "workflow.execute"):
+            user_id = user.get("user_id")
+            if not user or not user_id or not self.auth_manager.authorize(user_id, "workflow.execute"):
                 raise PermissionError("User not authorized")
             
             return {"success": True}
