@@ -21,7 +21,7 @@ class TestOrchestratorApiGatewayIntegration(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
         self.registry = EventRegistry()
-        self.event_bus = EventBus(registry=self.registry)
+        self.event_bus = EventBus()
         
         self.task_manager = TaskManager(event_bus=self.event_bus)
         self.workflow_engine = WorkflowEngine(task_manager=self.task_manager, event_bus=self.event_bus)

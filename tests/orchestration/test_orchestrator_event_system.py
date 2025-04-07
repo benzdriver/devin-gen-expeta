@@ -20,44 +20,8 @@ class TestOrchestratorEventSystemIntegration(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
         self.registry = EventRegistry()
-        self.event_bus = EventBus(registry=self.registry)
+        self.event_bus = EventBus()
         
-        self.event_bus.register_event_type("task.created", {
-            "type": "object",
-            "properties": {
-                "task_id": {"type": "string"},
-                "task": {"type": "object"}
-            },
-            "required": ["task_id", "task"]
-        })
-        
-        self.event_bus.register_event_type("task.updated", {
-            "type": "object",
-            "properties": {
-                "task_id": {"type": "string"},
-                "task": {"type": "object"}
-            },
-            "required": ["task_id", "task"]
-        })
-        
-        self.event_bus.register_event_type("workflow.execution.started", {
-            "type": "object",
-            "properties": {
-                "execution_id": {"type": "string"},
-                "workflow_id": {"type": "string"}
-            },
-            "required": ["execution_id", "workflow_id"]
-        })
-        
-        self.event_bus.register_event_type("system.component.status", {
-            "type": "object",
-            "properties": {
-                "component_id": {"type": "string"},
-                "status": {"type": "string"},
-                "metrics": {"type": "object"}
-            },
-            "required": ["component_id", "status"]
-        })
         
         self.task_manager = TaskManager(event_bus=self.event_bus)
         self.workflow_engine = WorkflowEngine(task_manager=self.task_manager, event_bus=self.event_bus)
