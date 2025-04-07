@@ -186,6 +186,8 @@ class WorkflowEngine:
         workflow = self.workflows[execution["workflow_id"]]
         
         try:
+            step_parameters = execution["parameters"].copy()
+            
             for i, step in enumerate(workflow["steps"]):
                 execution["current_step"] = i
                 execution["updated_at"] = datetime.now().isoformat()
@@ -198,7 +200,10 @@ class WorkflowEngine:
                         "step_index": i
                     })
                 
-                step_result = self._execute_step(step, execution["parameters"])
+                step_result = self._execute_step(step, step_parameters)
+                
+                if isinstance(step_result, dict):
+                    step_parameters.update(step_result)
                 
                 execution["results"].append({
                     "step": i,
@@ -214,7 +219,7 @@ class WorkflowEngine:
                         "result": step_result
                     })
                 
-                if "condition" in step and not self._evaluate_condition(step["condition"], step_result, execution["parameters"]):
+                if "condition" in step and not self._evaluate_condition(step["condition"], step_result, step_parameters):
                     if "next" in step:
                         next_step = step["next"]
                         for j, s in enumerate(workflow["steps"][i+1:], i+1):
