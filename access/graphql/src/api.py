@@ -128,7 +128,16 @@ class Generation(graphene.ObjectType):
 class SemanticMatch(graphene.ObjectType):
     """Semantic match object type"""
     match_score = graphene.Float(description="Semantic match score")
+    matchScore = graphene.Float(description="Semantic match score (camelCase alias)")
     analysis = graphene.String(description="Analysis of the semantic match")
+    
+    def resolve_match_score(self, info):
+        """Resolve match_score"""
+        return self.get("match_score", 0)
+    
+    def resolve_matchScore(self, info):
+        """Resolve matchScore (camelCase alias)"""
+        return self.get("match_score", 0)
 
 class TestDetail(graphene.ObjectType):
     """Test detail object type"""
@@ -138,9 +147,26 @@ class TestDetail(graphene.ObjectType):
 class TestResults(graphene.ObjectType):
     """Test results object type"""
     pass_rate = graphene.Float(description="Pass rate of the tests")
+    passRate = graphene.Float(description="Pass rate of the tests (camelCase alias)")
     tests_passed = graphene.Int(description="Number of tests passed")
     tests_failed = graphene.Int(description="Number of tests failed")
     test_details = graphene.List(TestDetail, description="Details of the tests")
+    
+    def resolve_pass_rate(self, info):
+        """Resolve pass_rate"""
+        return self.get("pass_rate", 0)
+    
+    def resolve_passRate(self, info):
+        """Resolve passRate (camelCase alias)"""
+        return self.get("pass_rate", 0)
+    
+    def resolve_tests_passed(self, info):
+        """Resolve tests_passed"""
+        return self.get("tests_passed", 0)
+    
+    def resolve_tests_failed(self, info):
+        """Resolve tests_failed"""
+        return self.get("tests_failed", 0)
     
     def resolve_test_details(self, info):
         """Resolve test details"""
@@ -259,14 +285,14 @@ class ValidateInput(graphene.InputObjectType):
 class Clarify(graphene.Mutation):
     """Clarify mutation"""
     class Arguments:
-        input = ClarifyInput(required=True)
+        text = graphene.String(required=True, description="Requirement text to clarify")
     
     topLevelExpectation = graphene.Field(Expectation)
     subExpectations = graphene.List(Expectation)
     
-    def mutate(self, info, input):
+    def mutate(self, info, text):
         """Mutate clarify"""
-        result = expeta.clarifier.clarify_requirement(input.text)
+        result = expeta.clarifier.clarify_requirement(text)
         expeta.clarifier.sync_to_memory(expeta.memory_system)
         
         return Clarify(
@@ -285,127 +311,58 @@ class ExpectationInput(graphene.InputObjectType):
 class Generate(graphene.Mutation):
     """Generate mutation"""
     class Arguments:
-        input = GenerateInput(required=False)
-        expectation = ExpectationInput(required=False)
+        expectation = graphene.JSONString(description="Expectation data")
     
     generatedCode = graphene.Field(GeneratedCode)
+    language = graphene.String()
+    files = graphene.List(CodeFile)
     
-    def mutate(self, info, input=None, expectation=None):
+    def mutate(self, info, expectation):
         """Mutate generate"""
-        if expectation:
-            expectation_data = {
-                "id": expectation.id,
-                "name": expectation.name,
-                "description": expectation.description
-            }
-            if hasattr(expectation, 'acceptance_criteria') and expectation.acceptance_criteria:
-                expectation_data["acceptance_criteria"] = expectation.acceptance_criteria
-            if hasattr(expectation, 'constraints') and expectation.constraints:
-                expectation_data["constraints"] = expectation.constraints
-        elif input:
-            if input.expectation_id:
-                expectation_data = expeta.memory_system.get_expectation(input.expectation_id)
-                if not expectation_data:
-                    raise Exception(f"Expectation with ID {input.expectation_id} not found")
-                expectation_data = expectation_data[0] if isinstance(expectation_data, list) else expectation_data
-            elif input.expectation:
-                import json
-                expectation_data = json.loads(input.expectation)
-            else:
-                raise Exception("Either expectation_id or expectation must be provided")
-        else:
-            raise Exception("Either input or expectation must be provided")
+        import json
+        expectation_data = json.loads(expectation)
         
-        mock_result = {
-            "generated_code": {
-                "language": "python",
-                "files": [
-                    {
-                        "path": "auth/user.py",
-                        "content": "class User:\n    def __init__(self, email, password):\n        self.email = email\n        self.password = password"
-                    }
-                ]
-            }
-        }
+        result = expeta.generator.generate(expectation_data)
+        expeta.generator.sync_to_memory(expeta.memory_system)
         
-        return Generate(generatedCode=mock_result.get("generated_code", {}))
+        generated_code = result.get("generated_code", {})
+        language = generated_code.get("language", "")
+        files = generated_code.get("files", [])
+        
+        file_objects = [
+            CodeFile(path=f.get("path"), content=f.get("content"))
+            for f in files
+        ]
+        
+        return Generate(
+            generatedCode=generated_code,
+            language=language,
+            files=file_objects
+        )
 
 class Validate(graphene.Mutation):
     """Validate mutation"""
     class Arguments:
-        input = ValidateInput(required=False)
-        code = graphene.JSONString(required=False)
-        expectation = ExpectationInput(required=False)
+        code = graphene.JSONString(required=True, description="Code to validate")
+        expectation = graphene.JSONString(description="Expectation data")
     
     passed = graphene.Boolean()
     semanticMatch = graphene.Field(SemanticMatch)
     testResults = graphene.Field(TestResults)
     
-    def mutate(self, info, input=None, code=None, expectation=None):
+    def mutate(self, info, code, expectation):
         """Mutate validate"""
         import json
+        code_data = json.loads(code)
+        expectation_data = json.loads(expectation)
         
-        if input:
-            code_data = json.loads(input.code)
-        elif code:
-            if isinstance(code, str):
-                code_data = json.loads(code)
-            else:
-                code_data = code
-        else:
-            code_data = {
-                "language": "python",
-                "files": [
-                    {
-                        "path": "auth/user.py",
-                        "content": "class User:\n    def __init__(self, email, password):\n        self.email = email\n        self.password = password"
-                    }
-                ]
-            }
-        
-        if expectation:
-            expectation_data = {
-                "id": expectation.id,
-                "name": expectation.name,
-                "description": expectation.description
-            }
-            if hasattr(expectation, 'acceptance_criteria') and expectation.acceptance_criteria:
-                expectation_data["acceptance_criteria"] = expectation.acceptance_criteria
-            if hasattr(expectation, 'constraints') and expectation.constraints:
-                expectation_data["constraints"] = expectation.constraints
-        elif input and (input.expectation_id or input.expectation):
-            if input.expectation_id:
-                expectation_data = expeta.memory_system.get_expectation(input.expectation_id)
-                if not expectation_data:
-                    raise Exception(f"Expectation with ID {input.expectation_id} not found")
-                expectation_data = expectation_data[0] if isinstance(expectation_data, list) else expectation_data
-            else:
-                expectation_data = json.loads(input.expectation)
-        else:
-            expectation_data = {
-                "id": "exp-12345678",
-                "name": "User Authentication System",
-                "description": "A system that handles user authentication"
-            }
-        
-        mock_result = {
-            "passed": True,
-            "semantic_match": {
-                "match_score": 0.95,
-                "analysis": "The code implements the user authentication system as expected."
-            },
-            "test_results": {
-                "pass_rate": 1.0,
-                "tests_passed": 5,
-                "tests_failed": 0,
-                "test_details": []
-            }
-        }
+        result = expeta.validator.validate(code_data, expectation_data)
+        expeta.validator.sync_to_memory(expeta.memory_system)
         
         return Validate(
-            passed=mock_result.get("passed", False),
-            semanticMatch=mock_result.get("semantic_match", {}),
-            testResults=mock_result.get("test_results", {})
+            passed=result.get("passed", False),
+            semanticMatch=result.get("semantic_match", {}),
+            testResults=result.get("test_results", {})
         )
 
 class ProcessRequirement(graphene.Mutation):
@@ -414,10 +371,10 @@ class ProcessRequirement(graphene.Mutation):
         text = graphene.String(required=True, description="Requirement text to process")
     
     requirement = graphene.String()
+    success = graphene.Boolean()
     clarification = graphene.Field(Expectation)
     generation = graphene.Field(Generation)
     validation = graphene.Field(Validation)
-    success = graphene.Boolean()
     
     def mutate(self, info, text):
         """Mutate process requirement"""
@@ -425,10 +382,10 @@ class ProcessRequirement(graphene.Mutation):
         
         return ProcessRequirement(
             requirement=result.get("requirement", ""),
+            success=result.get("success", False),
             clarification=result.get("clarification", {}).get("top_level_expectation", {}),
             generation=result.get("generation", {}),
-            validation=result.get("validation", {}),
-            success=result.get("success", False)
+            validation=result.get("validation", {})
         )
 
 class ProcessExpectation(graphene.Mutation):

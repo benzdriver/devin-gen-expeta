@@ -14,22 +14,33 @@ from access.chat.src.chat_interface import ChatInterface, DialogManager, Context
 class TestChatInterface(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
-        self.chat_interface = ChatInterface()
+        # Use a patch decorator for the class to prevent initialization errors
+        patcher = patch('access.chat.src.chat_interface.expeta')
+        self.mock_expeta = patcher.start()
+        self.addCleanup(patcher.stop)
+        
+        # Create mock objects for the expeta components
+        self.mock_clarifier = MagicMock()
+        self.mock_generator = MagicMock()
+        self.mock_memory_system = MagicMock()
+        
+        # Set up the expeta mock to return our component mocks
+        self.mock_expeta.clarifier = self.mock_clarifier
+        self.mock_expeta.generator = self.mock_generator
+        self.mock_expeta.memory_system = self.mock_memory_system
+        
+        # Create the chat interface with our mocked dependencies
+        self.chat_interface = ChatInterface(expeta_instance=self.mock_expeta)
     
-    @patch('access.chat.src.chat_interface.expeta')
-    def test_initialization(self, mock_expeta):
+    def test_initialization(self):
         """Test chat interface initialization"""
-        chat = ChatInterface()
+        chat = ChatInterface(expeta_instance=self.mock_expeta)
         self.assertIsNotNone(chat.dialog_manager)
         self.assertIsNotNone(chat.context_tracker)
         self.assertEqual(chat.config["llm_router"]["default_provider"], "anthropic")
     
-    @patch('access.chat.src.chat_interface.expeta')
-    def test_process_message(self, mock_expeta):
+    def test_process_message(self):
         """Test processing a chat message"""
-        mock_clarifier = MagicMock()
-        mock_expeta.clarifier = mock_clarifier
-        
         mock_result = {
             "response": "I'll help you create a user authentication system.",
             "expectation": {
@@ -38,7 +49,7 @@ class TestChatInterface(unittest.TestCase):
                 "description": "A system for user authentication"
             }
         }
-        mock_clarifier.process_chat_message.return_value = mock_result
+        self.mock_clarifier.process_chat_message.return_value = mock_result
         
         result = self.chat_interface.process_message(
             "Create a user authentication system",
@@ -48,14 +59,10 @@ class TestChatInterface(unittest.TestCase):
         
         self.assertEqual(result["response"], "I'll help you create a user authentication system.")
         self.assertEqual(result["expectation"]["id"], "exp-12345678")
-        mock_clarifier.process_chat_message.assert_called_once()
+        self.mock_clarifier.process_chat_message.assert_called_once()
     
-    @patch('access.chat.src.chat_interface.expeta')
-    def test_continue_conversation(self, mock_expeta):
+    def test_continue_conversation(self):
         """Test continuing a conversation"""
-        mock_clarifier = MagicMock()
-        mock_expeta.clarifier = mock_clarifier
-        
         mock_result = {
             "response": "I'll add password reset functionality to the authentication system.",
             "updated_expectation": {
@@ -64,7 +71,7 @@ class TestChatInterface(unittest.TestCase):
                 "description": "A system for user authentication with password reset"
             }
         }
-        mock_clarifier.continue_conversation.return_value = mock_result
+        self.mock_clarifier.continue_conversation.return_value = mock_result
         
         result = self.chat_interface.continue_conversation(
             "Can you add password reset functionality?",
@@ -74,14 +81,10 @@ class TestChatInterface(unittest.TestCase):
         
         self.assertEqual(result["response"], "I'll add password reset functionality to the authentication system.")
         self.assertEqual(result["updated_expectation"]["id"], "exp-12345678")
-        mock_clarifier.continue_conversation.assert_called_once()
+        self.mock_clarifier.continue_conversation.assert_called_once()
     
-    @patch('access.chat.src.chat_interface.expeta')
-    def test_generate_from_chat(self, mock_expeta):
+    def test_generate_from_chat(self):
         """Test generating code from chat"""
-        mock_generator = MagicMock()
-        mock_expeta.generator = mock_generator
-        
         mock_result = {
             "generated_code": {
                 "language": "python",
@@ -93,7 +96,7 @@ class TestChatInterface(unittest.TestCase):
                 ]
             }
         }
-        mock_generator.generate.return_value = mock_result
+        self.mock_generator.generate.return_value = mock_result
         
         result = self.chat_interface.generate_from_chat(
             expectation_id="exp-12345678",
@@ -103,7 +106,7 @@ class TestChatInterface(unittest.TestCase):
         
         self.assertEqual(result["generated_code"]["language"], "python")
         self.assertEqual(len(result["generated_code"]["files"]), 1)
-        mock_generator.generate.assert_called_once()
+        self.mock_generator.generate.assert_called_once()
     
     def test_session_management(self):
         """Test session management"""
@@ -120,23 +123,29 @@ class TestChatInterface(unittest.TestCase):
         session = self.chat_interface.get_session(session_id)
         self.assertIsNone(session)
     
-    @patch('access.chat.src.chat_interface.TokenTracker')
-    def test_token_tracking(self, mock_token_tracker):
+    def test_token_tracking(self):
         """Test token tracking"""
         mock_tracker_instance = MagicMock()
-        mock_token_tracker.return_value = mock_tracker_instance
-        
-        chat = ChatInterface()
-        
-        with patch('access.chat.src.chat_interface.expeta'):
+        with patch('access.chat.src.chat_interface.TokenTracker', return_value=mock_tracker_instance):
+            chat = ChatInterface(expeta_instance=self.mock_expeta)
+            
+            # Set up the mock to return a value
+            self.mock_clarifier.process_chat_message.return_value = {
+                "response": "I'll help you with that",
+                "expectation": {
+                    "id": "exp-12345678",
+                    "name": "Test Expectation"
+                }
+            }
+            
             chat.process_message(
                 "Create a user authentication system",
                 user_id="user123",
                 session_id="session456"
             )
         
-        mock_tracker_instance.track.assert_called()
-        mock_tracker_instance.get_usage_report.assert_called()
+            mock_tracker_instance.track.assert_called()
+            mock_tracker_instance.get_usage_report.assert_called()
 
 
 class TestDialogManager(unittest.TestCase):
