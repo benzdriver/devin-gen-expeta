@@ -35,7 +35,7 @@ import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { FiCheckCircle, FiAlertCircle, FiInfo } from 'react-icons/fi';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { conversationService } from './services/api';
+import { conversationService, clarifierService } from './services/api';
 import { ExpetaProvider } from './context/ExpetaContext';
 
 import LoginPage from './pages/LoginPage';
@@ -145,9 +145,9 @@ function ChatInterface() {
     setIsProcessing(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const userInput = input;
       
-      const userInput = input; // Store input in a variable since we've reset the state
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       const aiMessage = {
         id: Date.now() + 1,
@@ -159,7 +159,10 @@ function ChatInterface() {
       setMessages(prev => [...prev, aiMessage]);
       
       if (messages.length >= 1) {
-        generateExpectationSummary(userInput);
+        setShowSummary(false);
+        
+        await generateExpectationSummary(userInput);
+        
         setShowSummary(true);
       }
     } catch (error) {
@@ -190,67 +193,83 @@ function ChatInterface() {
     }
   };
   
-  const generateExpectationSummary = (latestInput) => {
-    
-    const userInputLower = latestInput.toLowerCase();
-    let summary = {
-      name: "Software Project",
-      description: "Based on our conversation, I understand you need a software solution.",
-      acceptance_criteria: [
-        "Must solve the core problem described",
-        "Should be user-friendly and intuitive"
-      ],
-      constraints: [
-        "Must be completed within reasonable timeframe",
-        "Should follow industry best practices"
-      ]
-    };
-    
-    if (userInputLower.includes('website') || userInputLower.includes('web app') || userInputLower.includes('homepage')) {
-      summary = {
-        name: "Website Development",
-        description: "A website that serves your specific needs and target audience.",
+  const generateExpectationSummary = async (latestInput) => {
+    try {
+      const response = await clarifierService.clarifyRequirement(latestInput);
+      
+      if (response && response.data) {
+        const { top_level_expectation, sub_expectations } = response.data;
+        
+        setExpectationSummary({
+          ...top_level_expectation,
+          sub_expectations: sub_expectations
+        });
+        
+        console.log('Clarification result:', response.data);
+      }
+    } catch (error) {
+      console.error('Error generating expectation summary:', error);
+      
+      const userInputLower = latestInput.toLowerCase();
+      let summary = {
+        name: "Software Project",
+        description: "Based on our conversation, I understand you need a software solution.",
         acceptance_criteria: [
-          "Responsive design that works on mobile and desktop",
-          "Clear navigation and user interface",
-          "Content management capabilities"
+          "Must solve the core problem described",
+          "Should be user-friendly and intuitive"
         ],
         constraints: [
-          "Must follow web accessibility guidelines",
-          "Should load quickly on various devices and connections"
+          "Must be completed within reasonable timeframe",
+          "Should follow industry best practices"
         ]
       };
-    } else if (userInputLower.includes('app') || userInputLower.includes('mobile')) {
-      summary = {
-        name: "Mobile Application",
-        description: "A mobile app that delivers value to your users.",
-        acceptance_criteria: [
-          "Intuitive user interface",
-          "Core functionality works offline",
-          "Efficient performance on target devices"
-        ],
-        constraints: [
-          "Must comply with app store guidelines",
-          "Should minimize battery usage"
-        ]
-      };
-    } else if (userInputLower.includes('api') || userInputLower.includes('backend')) {
-      summary = {
-        name: "API/Backend System",
-        description: "A robust backend system to support your application needs.",
-        acceptance_criteria: [
-          "Secure authentication and authorization",
-          "Well-documented API endpoints",
-          "Efficient data processing"
-        ],
-        constraints: [
-          "Must handle expected load",
-          "Should implement proper error handling"
-        ]
-      };
+      
+      if (userInputLower.includes('website') || userInputLower.includes('web app') || userInputLower.includes('homepage')) {
+        summary = {
+          name: "Website Development",
+          description: "A website that serves your specific needs and target audience.",
+          acceptance_criteria: [
+            "Responsive design that works on mobile and desktop",
+            "Clear navigation and user interface",
+            "Content management capabilities"
+          ],
+          constraints: [
+            "Must follow web accessibility guidelines",
+            "Should load quickly on various devices and connections"
+          ]
+        };
+      } else if (userInputLower.includes('app') || userInputLower.includes('mobile')) {
+        summary = {
+          name: "Mobile Application",
+          description: "A mobile app that delivers value to your users.",
+          acceptance_criteria: [
+            "Intuitive user interface",
+            "Core functionality works offline",
+            "Efficient performance on target devices"
+          ],
+          constraints: [
+            "Must comply with app store guidelines",
+            "Should minimize battery usage"
+          ]
+        };
+      } else if (userInputLower.includes('api') || userInputLower.includes('backend')) {
+        summary = {
+          name: "API/Backend System",
+          description: "A robust backend system to support your application needs.",
+          acceptance_criteria: [
+            "Secure authentication and authorization",
+            "Well-documented API endpoints",
+            "Efficient data processing"
+          ],
+          constraints: [
+            "Must handle expected load",
+            "Should implement proper error handling"
+          ]
+        };
+      }
+      
+      setExpectationSummary(summary);
     }
-    
-    setExpectationSummary(summary);
   };
   
   return (
@@ -317,20 +336,21 @@ function ChatInterface() {
                 bg="green.50"
                 maxW="100%"
                 mt={4}
+                boxShadow="md"
               >
                 <CardHeader pb={0}>
                   <Flex align="center">
                     <Icon as={FiInfo} color="green.500" mr={2} />
-                    <Heading size="sm">Understanding Summary</Heading>
+                    <Heading size="sm">AI Understanding Summary</Heading>
                   </Flex>
                 </CardHeader>
                 <CardBody pt={2}>
-                  <Text fontWeight="bold" mb={1}>{expectationSummary.name}</Text>
-                  <Text mb={2}>{expectationSummary.description}</Text>
+                  <Text fontWeight="bold" mb={1} fontSize="lg" color="blue.700">{expectationSummary.name}</Text>
+                  <Text mb={3}>{expectationSummary.description}</Text>
                   
                   <Text fontWeight="bold" fontSize="sm" mb={1}>Acceptance Criteria:</Text>
-                  <List spacing={1} mb={2}>
-                    {expectationSummary.acceptance_criteria.map((criterion, index) => (
+                  <List spacing={1} mb={3}>
+                    {expectationSummary.acceptance_criteria && expectationSummary.acceptance_criteria.map((criterion, index) => (
                       <ListItem key={index} fontSize="sm">
                         <ListIcon as={FiCheckCircle} color="green.500" />
                         {criterion}
@@ -339,14 +359,62 @@ function ChatInterface() {
                   </List>
                   
                   <Text fontWeight="bold" fontSize="sm" mb={1}>Constraints:</Text>
-                  <List spacing={1}>
-                    {expectationSummary.constraints.map((constraint, index) => (
+                  <List spacing={1} mb={3}>
+                    {expectationSummary.constraints && expectationSummary.constraints.map((constraint, index) => (
                       <ListItem key={index} fontSize="sm">
                         <ListIcon as={FiAlertCircle} color="orange.500" />
                         {constraint}
                       </ListItem>
                     ))}
                   </List>
+                  
+                  {/* Sub-Expectations Section */}
+                  {expectationSummary.sub_expectations && expectationSummary.sub_expectations.length > 0 && (
+                    <>
+                      <Divider my={3} />
+                      <Text fontWeight="bold" fontSize="md" mb={2} color="blue.600">Key Components:</Text>
+                      
+                      {expectationSummary.sub_expectations.map((subExp, index) => (
+                        <Box 
+                          key={index} 
+                          mb={3} 
+                          p={2} 
+                          borderLeft="2px" 
+                          borderColor="blue.300"
+                          bg="blue.50"
+                          borderRadius="sm"
+                        >
+                          <Text fontWeight="bold" fontSize="sm">{subExp.name}</Text>
+                          <Text fontSize="sm" mb={1}>{subExp.description}</Text>
+                          
+                          {subExp.acceptance_criteria && subExp.acceptance_criteria.length > 0 && (
+                            <Box ml={2} mt={1}>
+                              <Text fontSize="xs" fontWeight="bold" color="gray.600">Key Requirements:</Text>
+                              <List spacing={0}>
+                                {subExp.acceptance_criteria.slice(0, 2).map((criterion, idx) => (
+                                  <ListItem key={idx} fontSize="xs">
+                                    <ListIcon as={FiCheckCircle} color="green.400" fontSize="xs" />
+                                    {criterion}
+                                  </ListItem>
+                                ))}
+                                {subExp.acceptance_criteria.length > 2 && (
+                                  <Text fontSize="xs" color="gray.500" ml={5}>
+                                    +{subExp.acceptance_criteria.length - 2} more
+                                  </Text>
+                                )}
+                              </List>
+                            </Box>
+                          )}
+                        </Box>
+                      ))}
+                    </>
+                  )}
+                  
+                  <Flex justify="flex-end" mt={2}>
+                    <Badge colorScheme="green" fontSize="xs">
+                      Generated by Expeta Clarifier
+                    </Badge>
+                  </Flex>
                 </CardBody>
               </Card>
             )}

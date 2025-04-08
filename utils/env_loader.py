@@ -44,3 +44,28 @@ def load_dotenv(env_file=None):
             loaded_vars[key] = value
     
     return loaded_vars
+
+def load_env_vars(env_file=None):
+    """Load environment variables from .env file and set defaults
+    
+    Args:
+        env_file: Optional path to .env file. If not provided, looks for .env in current directory
+        
+    Returns:
+        Dictionary of loaded variables
+    """
+    loaded_vars = load_dotenv(env_file)
+    
+    defaults = {
+        "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
+        "OPENAI_PROJECT": os.environ.get("OPENAI_PROJECT", ""),
+        "OPENAI_ORGANIZATION": os.environ.get("OPENAI_ORGANIZATION", ""),
+        "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", ""),
+    }
+    
+    for key, value in defaults.items():
+        if key not in loaded_vars and value:
+            os.environ[key] = value
+            loaded_vars[key] = value
+    
+    return loaded_vars
