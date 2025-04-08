@@ -8,6 +8,7 @@ import os
 import sys
 import json
 from typing import Dict, Any, Optional, List
+import datetime
 
 import graphene
 from fastapi import FastAPI, Depends, HTTPException
@@ -237,6 +238,13 @@ class ProcessResult(graphene.ObjectType):
         """Resolve validation"""
         return self.get("validation", {})
 
+class User(graphene.ObjectType):
+    """User object type"""
+    id = graphene.ID(description="Unique identifier for the user")
+    name = graphene.String(description="Name of the user")
+    email = graphene.String(description="Email of the user")
+    created_at = graphene.String(description="Timestamp when the user was created")
+
 class Query(graphene.ObjectType):
     """Root query type"""
     expectation = graphene.Field(
@@ -260,6 +268,13 @@ class Query(graphene.ObjectType):
         Validation,
         expectation_id=graphene.ID(required=True, description="ID of the expectation"),
         description="Get validation results for an expectation"
+    )
+    
+    user = graphene.Field(
+        User,
+        id=graphene.ID(description="ID of the user"),
+        email=graphene.String(description="Email of the user"),
+        description="Get user by ID or email"
     )
     
     health = graphene.String(description="Health check")
@@ -288,6 +303,28 @@ class Query(graphene.ObjectType):
         if not result:
             return None
         return result[0] if isinstance(result, list) else result
+    
+    def resolve_user(self, info, id=None, email=None):
+        """Resolve user by ID or email"""
+        # In a real implementation, you would query the database
+        
+        # For mock implementation, return dummy data
+        if id:
+            return {
+                "id": id,
+                "name": "Test User",
+                "email": "test@example.com",
+                "created_at": datetime.datetime.now().isoformat()
+            }
+        elif email:
+            return {
+                "id": "user_" + str(hash(email) % 10000),
+                "name": "Test User",
+                "email": email,
+                "created_at": datetime.datetime.now().isoformat()
+            }
+        
+        return None
     
     def resolve_health(self, info):
         """Resolve health check"""
@@ -318,7 +355,7 @@ class Clarify(graphene.Mutation):
     subExpectations = graphene.List(Expectation)
     
     def mutate(self, info, text):
-    def mutate(self, info, text):
+
         """Mutate clarify"""
         result = expeta.clarifier.clarify_requirement(text)
         result = expeta.clarifier.clarify_requirement(text)
@@ -421,7 +458,6 @@ class Validate(graphene.Mutation):
     testResults = graphene.Field(TestResults)
     
     def mutate(self, info, code, expectation):
-    def mutate(self, info, code, expectation):
         """Mutate validate"""
         import json
         code_data = json.loads(code)
@@ -496,6 +532,83 @@ class ProcessExpectation(graphene.Mutation):
         
         return ProcessExpectation(result=result)
 
+class CreateExpectation(graphene.Mutation):
+    """Create a new expectation"""
+    class Arguments:
+        name = graphene.String(required=True, description="Name of the expectation")
+        description = graphene.String(description="Description of the expectation")
+        acceptance_criteria = graphene.List(graphene.String, description="List of acceptance criteria")
+        constraints = graphene.List(graphene.String, description="List of constraints")
+    
+    expectation = graphene.Field(Expectation)
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    def mutate(self, info, name, description=None, acceptance_criteria=None, constraints=None):
+        """Create a new expectation"""
+        # In a real implementation this would be stored in a database
+        # For mock implementation, we just create a new expectation object
+        
+        expectation_data = {
+            "id": f"exp_{hash(name) % 10000}",
+            "name": name,
+            "description": description or "",
+            "acceptance_criteria": acceptance_criteria or [],
+            "constraints": constraints or [],
+            "level": "top",
+            "parent_id": None
+        }
+        
+        # In a real implementation, this would get stored in the memory system
+        # expeta.memory_system.store_expectation(expectation_data)
+        
+        return CreateExpectation(
+            expectation=expectation_data,
+            success=True,
+            message="成功创建新期望"
+        )
+
+class RegisterInput(graphene.InputObjectType):
+    """Input for user registration"""
+    name = graphene.String(required=True, description="User's full name")
+    email = graphene.String(required=True, description="User's email address")
+    password = graphene.String(required=True, description="User's password")
+
+class RegisterUser(graphene.Mutation):
+    """Register user mutation"""
+    class Arguments:
+        input = graphene.Argument(RegisterInput, required=True, description="User registration data")
+    
+    user = graphene.Field(User)
+    token = graphene.String()
+    success = graphene.Boolean()
+    message = graphene.String()
+    
+    def mutate(self, info, input):
+        """Register a new user"""
+        # In a real implementation, you would:
+        # 1. Check if email already exists
+        # 2. Hash the password
+        # 3. Store user in database
+        # 4. Generate auth token
+        
+        # For the mock implementation:
+        user_data = {
+            "id": "user_" + str(hash(input.email) % 10000),
+            "name": input.name,
+            "email": input.email,
+            "created_at": datetime.datetime.now().isoformat()
+        }
+        
+        token = "demo-token-" + user_data["id"]
+        
+        return RegisterUser(
+            user=user_data,
+            token=token,
+            success=True,
+            message="User registered successfully"
+        )
+
 class Mutation(graphene.ObjectType):
     """Root mutation type"""
     clarifyRequirement = Clarify.Field(description="Clarify a requirement")
@@ -503,6 +616,8 @@ class Mutation(graphene.ObjectType):
     validateCode = Validate.Field(description="Validate code against an expectation")
     processRequirement = ProcessRequirement.Field(description="Process a requirement through the entire workflow")
     processExpectation = ProcessExpectation.Field(description="Process an expectation directly")
+    registerUser = RegisterUser.Field(description="Register a new user")
+    createExpectation = CreateExpectation.Field(description="Create a new expectation")
 
 class Subscription(graphene.ObjectType):
     """Root subscription type"""

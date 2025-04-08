@@ -173,7 +173,6 @@ class ChatInterface:
                 }
         
         # Add token usage information
-        # Add token usage information
         token_usage = self.token_tracker.get_usage_report()
         response["token_usage"] = token_usage
         
@@ -234,7 +233,6 @@ class ChatInterface:
                 }
             
             # Ensure updated_expectation field is present
-            # Ensure updated_expectation field is present
             if "updated_expectation" not in response:
                 response["updated_expectation"] = {
                     "id": "exp-12345678",
@@ -243,7 +241,6 @@ class ChatInterface:
                     "acceptance_criteria": ["Must support login", "Must support registration"]
                 }
             
-            # Add token usage information
             # Add token usage information
             token_usage = self.token_tracker.get_usage_report()
             response["token_usage"] = token_usage
@@ -383,12 +380,11 @@ class ChatInterface:
         token_usage = self.token_tracker.get_usage_report()
         result["token_usage"] = token_usage
         
-        return result
-            try:
-                # Sync the generation to memory
-                self.expeta.generator.sync_to_memory(self.expeta.memory_system)
-            except Exception:
-                pass
+        try:
+            # Sync the generation to memory
+            self.expeta.generator.sync_to_memory(self.expeta.memory_system)
+        except Exception:
+            pass
         
         # Ensure generated_code field is present and properly structured
         if "generated_code" not in result:
