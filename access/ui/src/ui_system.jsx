@@ -14,17 +14,14 @@ import {
   Input,
   Button,
   Textarea,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
   Alert,
   AlertIcon,
   Spinner,
   useToast,
   Badge
 } from '@chakra-ui/react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import SideNavigation from './components/SideNavigation';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
@@ -33,38 +30,24 @@ function App() {
     <ChakraProvider>
       <Box minH="100vh" bg="gray.50">
         <Header />
-        <Box maxW="1200px" mx="auto" p={4}>
-          <Tabs variant="enclosed" colorScheme="blue">
-            <TabList>
-              <Tab>Dashboard</Tab>
-              <Tab>Process</Tab>
-              <Tab>Clarify</Tab>
-              <Tab>Generate</Tab>
-              <Tab>Validate</Tab>
-              <Tab>Settings</Tab>
-            </TabList>
-            <TabPanels>
-              <TabPanel>
-                <Dashboard />
-              </TabPanel>
-              <TabPanel>
-                <ProcessTab />
-              </TabPanel>
-              <TabPanel>
-                <ClarifyTab />
-              </TabPanel>
-              <TabPanel>
-                <GenerateTab />
-              </TabPanel>
-              <TabPanel>
-                <ValidateTab />
-              </TabPanel>
-              <TabPanel>
-                <SettingsTab />
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
-        </Box>
+        <Flex>
+          <SideNavigation />
+          <Box
+            ml={{ base: 0, md: "250px" }}
+            p={4}
+            w={{ base: "100%", md: "calc(100% - 250px)" }}
+            transition="all 0.3s"
+          >
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/process" element={<ProcessTab />} />
+              <Route path="/clarify" element={<ClarifyTab />} />
+              <Route path="/generate" element={<GenerateTab />} />
+              <Route path="/validate" element={<ValidateTab />} />
+              <Route path="/settings" element={<SettingsTab />} />
+            </Routes>
+          </Box>
+        </Flex>
         <Footer />
       </Box>
     </ChakraProvider>
@@ -128,7 +111,7 @@ function Dashboard() {
     <Box>
       <Heading size="md" mb={6}>Dashboard</Heading>
       
-      <Flex mb={8} gap={4}>
+      <Flex mb={8} gap={4} flexWrap="wrap">
         <StatCard title="Requirements" value={stats.requirements} color="blue" />
         <StatCard title="Expectations" value={stats.expectations} color="green" />
         <StatCard title="Generations" value={stats.generations} color="purple" />
@@ -146,6 +129,7 @@ function StatCard({ title, value, color }) {
       borderRadius="md" 
       shadow="md" 
       flex="1"
+      minW={{ base: "100%", sm: "200px" }}
     >
       <Flex justify="space-between" align="center">
         <Box>
