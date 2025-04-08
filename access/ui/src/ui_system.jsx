@@ -18,8 +18,12 @@ import {
   AlertIcon,
   Spinner,
   useToast,
-  Badge,
-  Container
+  Container,
+  Card,
+  CardBody,
+  CardHeader,
+  Stack,
+  Divider
 } from '@chakra-ui/react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
@@ -65,12 +69,8 @@ function App() {
               <Layout />
             </ProtectedRoute>
           }>
-            <Route index element={<Dashboard />} />
-            <Route path="expectations" element={<ExpectationsTab />} />
-            <Route path="generations" element={<GenerationsTab />} />
-            <Route path="validations" element={<ValidationsTab />} />
-            <Route path="settings" element={<SettingsTab />} />
-            <Route path="docs" element={<DocumentationTab />} />
+            <Route index element={<ChatInterface />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
           
           <Route path="*" element={<NotFoundPage />} />
@@ -80,383 +80,147 @@ function App() {
   );
 }
 
-function ExpectationsTab() {
-  return (
-    <Box>
-      <Heading size="md" mb={6}>Expectations</Heading>
-      <Text>Expectations interface would be implemented here</Text>
-    </Box>
-  );
-}
-
-function GenerationsTab() {
-  return (
-    <Box>
-      <Heading size="md" mb={6}>Generations</Heading>
-      <Text>Generations interface would be implemented here</Text>
-    </Box>
-  );
-}
-
-function ValidationsTab() {
-  return (
-    <Box>
-      <Heading size="md" mb={6}>Validations</Heading>
-      <Text>Validations interface would be implemented here</Text>
-    </Box>
-  );
-}
-
-function DocumentationTab() {
-  return (
-    <Box>
-      <Heading size="md" mb={6}>Documentation</Heading>
-      <Text>Documentation interface would be implemented here</Text>
-    </Box>
-  );
-}
-
-function Header() {
-  return (
-    <Box bg="blue.600" color="white" py={4} px={8} shadow="md">
-      <Flex maxW="1200px" mx="auto" justify="space-between" align="center">
-        <Heading size="lg">Expeta 2.0</Heading>
-        <Text>Semantic-Driven Software Development</Text>
-      </Flex>
-    </Box>
-  );
-}
-
-function Footer() {
-  return (
-    <Box bg="gray.100" color="gray.600" py={4} px={8} mt={8}>
-      <Flex maxW="1200px" mx="auto" justify="space-between" align="center">
-        <Text fontSize="sm">© 2025 Expeta 2.0</Text>
-        <Text fontSize="sm">Version 0.1.0</Text>
-      </Flex>
-    </Box>
-  );
-}
-
-function Dashboard() {
-  const [stats, setStats] = useState({
-    requirements: 0,
-    expectations: 0,
-    generations: 0,
-    validations: 0
-  });
-  
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    setTimeout(() => {
-      setStats({
-        requirements: 12,
-        expectations: 28,
-        generations: 15,
-        validations: 10
-      });
-      setLoading(false);
-    }, 1000);
-  }, []);
-  
-  if (loading) {
-    return (
-      <Box textAlign="center" py={10}>
-        <Spinner size="xl" />
-        <Text mt={4}>Loading dashboard...</Text>
-      </Box>
-    );
-  }
-  
-  return (
-    <Box>
-      <Heading size="md" mb={6}>Dashboard</Heading>
-      
-      <Flex mb={8} gap={4} flexWrap="wrap">
-        <StatCard title="Requirements" value={stats.requirements} color="blue" />
-        <StatCard title="Expectations" value={stats.expectations} color="green" />
-        <StatCard title="Generations" value={stats.generations} color="purple" />
-        <StatCard title="Validations" value={stats.validations} color="orange" />
-      </Flex>
-    </Box>
-  );
-}
-
-function StatCard({ title, value, color }) {
-  return (
-    <Box 
-      bg="white" 
-      p={6} 
-      borderRadius="md" 
-      shadow="md" 
-      flex="1"
-      minW={{ base: "100%", sm: "200px" }}
-    >
-      <Flex justify="space-between" align="center">
-        <Box>
-          <Text color="gray.500">{title}</Text>
-          <Text fontSize="3xl" fontWeight="bold">{value}</Text>
-        </Box>
-        <Box color={`${color}.500`} />
-      </Flex>
-    </Box>
-  );
-}
-
-function ProcessTab() {
-  const [requirement, setRequirement] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState(null);
+function ChatInterface() {
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const toast = useToast();
   
-  const handleProcess = async () => {
-    if (!requirement.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a requirement',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
-      });
-      return;
-    }
+  const handleSendMessage = async () => {
+    if (!input.trim()) return;
     
-    setProcessing(true);
-    setError(null);
+    const userMessage = {
+      id: Date.now(),
+      text: input,
+      sender: 'user',
+      timestamp: new Date().toISOString()
+    };
     
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: 'Success',
-        description: 'Requirement processed successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true
-      });
-    } catch (err) {
-      setError(err.message || 'An error occurred while processing the requirement');
-      
-      toast({
-        title: 'Error',
-        description: err.message || 'An error occurred while processing the requirement',
-        status: 'error',
-        duration: 5000,
-        isClosable: true
-      });
-    } finally {
-      setProcessing(false);
-    }
-  };
-  
-  return (
-    <Box>
-      <Heading size="md" mb={6}>Process Requirement</Heading>
-      
-      <Box bg="white" p={6} borderRadius="md" shadow="md" mb={6}>
-        <Text mb={2}>Enter your requirement:</Text>
-        <Textarea
-          value={requirement}
-          onChange={(e) => setRequirement(e.target.value)}
-          placeholder="Describe what you want to build..."
-          size="lg"
-          rows={5}
-          mb={4}
-        />
-        <Button
-          colorScheme="blue"
-          onClick={handleProcess}
-          isLoading={processing}
-          loadingText="Processing"
-        >
-          Process Requirement
-        </Button>
-      </Box>
-      
-      {error && (
-        <Alert status="error" mb={6}>
-          <AlertIcon />
-          {error}
-        </Alert>
-      )}
-    </Box>
-  );
-}
-
-function ClarifyTab() {
-  const [requirement, setRequirement] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState(null);
-  const toast = useToast();
-  
-  const handleClarify = async () => {
-    if (!requirement.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a requirement',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
-      });
-      return;
-    }
-    
-    setProcessing(true);
-    setError(null);
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsProcessing(true);
     
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
       
+      const aiMessage = {
+        id: Date.now() + 1,
+        text: "I'm analyzing your request. Could you provide more details about what you're trying to build?",
+        sender: 'ai',
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
       toast({
-        title: 'Success',
-        description: 'Requirement clarified successfully',
-        status: 'success',
+        title: 'Error',
+        description: 'Failed to process your message',
+        status: 'error',
         duration: 3000,
         isClosable: true
       });
-    } catch (err) {
-      setError(err.message || 'An error occurred while clarifying the requirement');
-      
-      toast({
-        title: 'Error',
-        description: err.message || 'An error occurred while clarifying the requirement',
-        status: 'error',
-        duration: 5000,
-        isClosable: true
-      });
     } finally {
-      setProcessing(false);
+      setIsProcessing(false);
     }
   };
   
   return (
-    <Box>
-      <Heading size="md" mb={6}>Clarify Requirement</Heading>
+    <Box height="calc(100vh - 140px)" display="flex" flexDirection="column">
+      <Heading size="md" mb={4}>Expeta Clarifier</Heading>
       
-      <Box bg="white" p={6} borderRadius="md" shadow="md" mb={6}>
-        <Text mb={2}>Enter your requirement:</Text>
+      {/* Messages area */}
+      <Box 
+        flex="1" 
+        bg="white" 
+        borderRadius="md" 
+        shadow="sm" 
+        mb={4} 
+        overflowY="auto"
+        p={4}
+      >
+        {messages.length === 0 ? (
+          <Flex 
+            height="100%" 
+            alignItems="center" 
+            justifyContent="center" 
+            flexDirection="column"
+            color="gray.500"
+          >
+            <Text fontSize="lg" mb={2}>Welcome to Expeta 2.0</Text>
+            <Text>Start a conversation to clarify your software requirements</Text>
+          </Flex>
+        ) : (
+          <Stack spacing={4}>
+            {messages.map(message => (
+              <Card 
+                key={message.id} 
+                bg={message.sender === 'user' ? 'blue.50' : 'white'}
+                borderWidth={1}
+                borderColor={message.sender === 'user' ? 'blue.200' : 'gray.200'}
+                alignSelf={message.sender === 'user' ? 'flex-end' : 'flex-start'}
+                maxW="80%"
+              >
+                <CardBody py={2} px={4}>
+                  <Text>{message.text}</Text>
+                </CardBody>
+              </Card>
+            ))}
+            {isProcessing && (
+              <Flex justify="flex-start">
+                <Card bg="white" borderWidth={1} borderColor="gray.200" maxW="80%">
+                  <CardBody py={2} px={4} display="flex" alignItems="center">
+                    <Spinner size="sm" mr={2} />
+                    <Text>Thinking...</Text>
+                  </CardBody>
+                </Card>
+              </Flex>
+            )}
+          </Stack>
+        )}
+      </Box>
+      
+      {/* Input area */}
+      <Flex>
         <Textarea
-          value={requirement}
-          onChange={(e) => setRequirement(e.target.value)}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
           placeholder="Describe what you want to build..."
-          size="lg"
-          rows={5}
-          mb={4}
+          size="md"
+          resize="none"
+          mr={2}
+          onKeyPress={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSendMessage();
+            }
+          }}
         />
         <Button
-          colorScheme="green"
-          onClick={handleClarify}
-          isLoading={processing}
-          loadingText="Clarifying"
+          colorScheme="blue"
+          onClick={handleSendMessage}
+          isLoading={isProcessing}
+          loadingText="Sending"
+          alignSelf="flex-end"
         >
-          Clarify Requirement
+          Send
         </Button>
-      </Box>
-      
-      {error && (
-        <Alert status="error" mb={6}>
-          <AlertIcon />
-          {error}
-        </Alert>
-      )}
+      </Flex>
     </Box>
   );
 }
 
-function GenerateTab() {
-  const [expectationId, setExpectationId] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState(null);
-  const toast = useToast();
-  
-  const handleGenerate = async () => {
-    if (!expectationId.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter an expectation ID',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
-      });
-      return;
-    }
-    
-    setProcessing(true);
-    setError(null);
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: 'Success',
-        description: 'Code generated successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true
-      });
-    } catch (err) {
-      setError(err.message || 'An error occurred while generating code');
-      
-      toast({
-        title: 'Error',
-        description: err.message || 'An error occurred while generating code',
-        status: 'error',
-        duration: 5000,
-        isClosable: true
-      });
-    } finally {
-      setProcessing(false);
-    }
-  };
-  
-  return (
-    <Box>
-      <Heading size="md" mb={6}>Generate Code</Heading>
-      
-      <Box bg="white" p={6} borderRadius="md" shadow="md" mb={6}>
-        <Text mb={2}>Enter expectation ID:</Text>
-        <Input
-          value={expectationId}
-          onChange={(e) => setExpectationId(e.target.value)}
-          placeholder="e.g., exp-12345678"
-          mb={4}
-        />
-        
-        <Button
-          colorScheme="purple"
-          onClick={handleGenerate}
-          isLoading={processing}
-          loadingText="Generating"
-        >
-          Generate Code
-        </Button>
-      </Box>
-      
-      {error && (
-        <Alert status="error" mb={6}>
-          <AlertIcon />
-          {error}
-        </Alert>
-      )}
-    </Box>
-  );
-}
-
-function ValidateTab() {
-  return (
-    <Box>
-      <Heading size="md" mb={6}>Validate Code</Heading>
-      <Text>Validation interface would be implemented here</Text>
-    </Box>
-  );
-}
-
-function SettingsTab() {
+function SettingsPage() {
   return (
     <Box>
       <Heading size="md" mb={6}>Settings</Heading>
-      <Text>Settings interface would be implemented here</Text>
+      <Card>
+        <CardHeader>
+          <Heading size="sm">User Settings</Heading>
+        </CardHeader>
+        <CardBody>
+          <Text>Settings interface would be implemented here</Text>
+        </CardBody>
+      </Card>
     </Box>
   );
 }
