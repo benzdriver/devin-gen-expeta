@@ -43,23 +43,55 @@ class EnhancedClarifier(Clarifier):
         router.token_tracker = self.token_tracker
         return router
     
-    def clarify_requirement(self, requirement_text):
+    def clarify_requirement(self, requirement_text, conversation_id=None):
         """Clarify requirements with token tracking
         
         Args:
             requirement_text: Natural language requirement text
+            conversation_id: Optional conversation ID for multi-round dialogue
             
         Returns:
-            Dictionary with top-level expectation, sub-expectations, and process metadata
+            Dictionary with clarification results and conversation state
         """
         start_time = datetime.now().isoformat()
         
-        result = super().clarify_requirement(requirement_text)
+        result = super().clarify_requirement(requirement_text, conversation_id)
         
         end_time = datetime.now().isoformat()
         
         result_record = {
             "requirement": requirement_text,
+            "result": result,
+            "start_time": start_time,
+            "end_time": end_time,
+            "token_usage": self.token_tracker.total_usage,
+            "conversation_id": result.get("conversation_id")
+        }
+        
+        self.results.append(result_record)
+        
+        return result
+        
+    def continue_conversation(self, conversation_id, user_message, context=None):
+        """Continue an existing clarification conversation with token tracking
+        
+        Args:
+            conversation_id: Unique identifier for the conversation
+            user_message: User's follow-up message
+            context: Optional additional context
+            
+        Returns:
+            Dictionary with updated clarification and response
+        """
+        start_time = datetime.now().isoformat()
+        
+        result = super().continue_conversation(conversation_id, user_message, context)
+        
+        end_time = datetime.now().isoformat()
+        
+        result_record = {
+            "conversation_id": conversation_id,
+            "user_message": user_message,
             "result": result,
             "start_time": start_time,
             "end_time": end_time,

@@ -322,6 +322,8 @@ function GenerateTab() {
   const [expectationId, setExpectationId] = useState('');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
+  const [generatedFiles, setGeneratedFiles] = useState([]);
+  const [expectation, setExpectation] = useState(null);
   const toast = useToast();
   
   const handleGenerate = async () => {
@@ -338,9 +340,47 @@ function GenerateTab() {
     
     setProcessing(true);
     setError(null);
+    setGeneratedFiles([]);
+    setExpectation(null);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const expectationResponse = await fetch(`${API_BASE_URL}/memory/expectations/${expectationId}`);
+      
+      if (!expectationResponse.ok) {
+        throw new Error(`Failed to fetch expectation: ${expectationResponse.statusText}`);
+      }
+      
+      const expectationData = await expectationResponse.json();
+      
+      let generationData;
+      const generationResponse = await fetch(`${API_BASE_URL}/memory/generations/${expectationId}`);
+      
+      if (generationResponse.ok) {
+        generationData = await generationResponse.json();
+      } else {
+        const generateResponse = await fetch(`${API_BASE_URL}/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(expectationData),
+        });
+        
+        if (!generateResponse.ok) {
+          throw new Error(`Failed to generate code: ${generateResponse.statusText}`);
+        }
+        
+        generationData = await generateResponse.json();
+      }
+      
+      const data = {
+        success: true,
+        expectation: expectationData,
+        generated_code: generationData
+      };
+      
+      setExpectation(data.expectation);
+      setGeneratedFiles(data.generated_code.files);
       
       toast({
         title: 'Success',
@@ -364,6 +404,70 @@ function GenerateTab() {
     }
   };
   
+  const handleDownloadFile = (file) => {
+    const downloadUrl = `${API_BASE_URL}/download/file/${expectationId}/${file.name}`;
+    
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    
+    document.body.removeChild(a);
+    
+    toast({
+      title: 'Download Started',
+      description: `Downloading ${file.name}`,
+      status: 'info',
+      duration: 2000,
+      isClosable: true
+    });
+  };
+  
+  const handleDownloadAll = () => {
+    if (!generatedFiles.length) return;
+    
+    const downloadUrl = `${API_BASE_URL}/download/code/${expectationId}`;
+    
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `code_${expectationId}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    
+    document.body.removeChild(a);
+    
+    toast({
+      title: 'Download Started',
+      description: 'Downloading all files as ZIP',
+      status: 'info',
+      duration: 2000,
+      isClosable: true
+    });
+  };
+  
+  const handleDownloadExpectation = () => {
+    if (!expectation) return;
+    
+    const downloadUrl = `${API_BASE_URL}/download/expectation/${expectationId}?format=yaml`;
+    
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `expectation_${expectationId}.yaml`;
+    document.body.appendChild(a);
+    a.click();
+    
+    document.body.removeChild(a);
+    
+    toast({
+      title: 'Download Started',
+      description: `Downloading expectation YAML`,
+      status: 'info',
+      duration: 2000,
+      isClosable: true
+    });
+  };
+  
   return (
     <Box>
       <Heading size="md" mb={6}>Generate Code</Heading>
@@ -382,9 +486,30 @@ function GenerateTab() {
           onClick={handleGenerate}
           isLoading={processing}
           loadingText="Generating"
+          mr={4}
         >
           Generate Code
         </Button>
+        
+        {generatedFiles.length > 0 && (
+          <Button
+            colorScheme="teal"
+            onClick={handleDownloadAll}
+            ml={2}
+          >
+            Download All Files
+          </Button>
+        )}
+        
+        {expectation && (
+          <Button
+            colorScheme="blue"
+            onClick={handleDownloadExpectation}
+            ml={2}
+          >
+            Download Expectation
+          </Button>
+        )}
       </Box>
       
       {error && (
@@ -392,6 +517,57 @@ function GenerateTab() {
           <AlertIcon />
           {error}
         </Alert>
+      )}
+      
+      {expectation && (
+        <Box bg="white" p={6} borderRadius="md" shadow="md" mb={6}>
+          <Heading size="sm" mb={3}>Expectation: {expectation.name}</Heading>
+          <Text mb={2}>{expectation.description}</Text>
+          
+          <Text fontWeight="bold" mt={4} mb={2}>Acceptance Criteria:</Text>
+          {expectation.acceptance_criteria.map((criterion, index) => (
+            <Text key={index} ml={4}>• {criterion}</Text>
+          ))}
+        </Box>
+      )}
+      
+      {generatedFiles.length > 0 && (
+        <Box bg="white" p={6} borderRadius="md" shadow="md">
+          <Heading size="sm" mb={4}>Generated Files</Heading>
+          
+          {generatedFiles.map((file, index) => (
+            <Box 
+              key={index} 
+              p={4} 
+              borderWidth="1px" 
+              borderRadius="md" 
+              mb={4}
+            >
+              <Flex justify="space-between" align="center" mb={2}>
+                <Text fontWeight="bold">{file.name}</Text>
+                <Button
+                  size="sm"
+                  colorScheme="teal"
+                  onClick={() => handleDownloadFile(file)}
+                >
+                  Download
+                </Button>
+              </Flex>
+              
+              <Box
+                bg="gray.50"
+                p={3}
+                borderRadius="md"
+                fontFamily="monospace"
+                fontSize="sm"
+                whiteSpace="pre-wrap"
+                overflowX="auto"
+              >
+                {file.content}
+              </Box>
+            </Box>
+          ))}
+        </Box>
       )}
     </Box>
   );
