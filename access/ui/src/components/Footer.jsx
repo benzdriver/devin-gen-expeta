@@ -1,12 +1,56 @@
 import React from 'react';
-import { Box, Flex, Text } from '@chakra-ui/react';
+import { Box, Text, Link, Flex, useColorModeValue } from '@chakra-ui/react';
 
 function Footer() {
   return (
-    <Box bg="gray.100" color="gray.600" py={2} px={4} h="40px">
-      <Flex h="100%" mx="auto" justify="space-between" align="center">
-        <Text fontSize="xs">© 2025 Expeta 2.0</Text>
-        <Text fontSize="xs">Version 0.1.0</Text>
+    <Box
+      as="footer"
+      py={6}
+      px={4}
+      mt="auto"
+      bg={useColorModeValue('gray.50', 'gray.900')}
+      borderTop="1px"
+      borderTopColor={useColorModeValue('gray.200', 'gray.700')}
+    >
+      <Flex
+        maxW="1200px"
+        mx="auto"
+        align="center"
+        justify="space-between"
+        direction={{ base: 'column', md: 'row' }}
+        textAlign={{ base: 'center', md: 'left' }}
+        gap={2}
+      >
+        <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>
+          © {new Date().getFullYear()} Expeta 2.0 - Semantic-Driven Software Development
+        </Text>
+        
+        <Flex gap={4}>
+          <Link 
+            href="#" 
+            fontSize="sm" 
+            color={useColorModeValue('gray.600', 'gray.400')}
+            _hover={{ color: 'blue.500' }}
+          >
+            Documentation
+          </Link>
+          <Link 
+            href="#" 
+            fontSize="sm" 
+            color={useColorModeValue('gray.600', 'gray.400')}
+            _hover={{ color: 'blue.500' }}
+          >
+            About
+          </Link>
+          <Link 
+            href="#" 
+            fontSize="sm" 
+            color={useColorModeValue('gray.600', 'gray.400')}
+            _hover={{ color: 'blue.500' }}
+          >
+            Contact
+          </Link>
+        </Flex>
       </Flex>
     </Box>
   );

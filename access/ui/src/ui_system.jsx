@@ -4,7 +4,7 @@
  * This module provides a web-based user interface for Expeta system.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import {
   ChakraProvider,
   Box,
@@ -18,39 +18,101 @@ import {
   AlertIcon,
   Spinner,
   useToast,
-  Badge
+  Badge,
+  Container
 } from '@chakra-ui/react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import SideNavigation from './components/SideNavigation';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import Layout from './components/Layout';
+import { AuthProvider, useAuth } from './context/AuthContext';
+
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
+export { AuthProvider, useAuth } from './context/AuthContext';
+
+function ProtectedRoute({ children }) {
+  const { currentUser, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <Spinner size="xl" />
+      </Box>
+    );
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+}
 
 function App() {
   return (
     <ChakraProvider>
-      <Box minH="100vh" bg="gray.50">
-        <Header />
-        <Flex>
-          <SideNavigation />
-          <Box
-            ml={{ base: 0, md: "250px" }}
-            p={4}
-            w={{ base: "100%", md: "calc(100% - 250px)" }}
-            transition="all 0.3s"
-          >
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/process" element={<ProcessTab />} />
-              <Route path="/clarify" element={<ClarifyTab />} />
-              <Route path="/generate" element={<GenerateTab />} />
-              <Route path="/validate" element={<ValidateTab />} />
-              <Route path="/settings" element={<SettingsTab />} />
-            </Routes>
-          </Box>
-        </Flex>
-        <Footer />
-      </Box>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Dashboard />} />
+            <Route path="expectations" element={<ExpectationsTab />} />
+            <Route path="generations" element={<GenerationsTab />} />
+            <Route path="validations" element={<ValidationsTab />} />
+            <Route path="settings" element={<SettingsTab />} />
+            <Route path="docs" element={<DocumentationTab />} />
+          </Route>
+          
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </AuthProvider>
     </ChakraProvider>
+  );
+}
+
+function ExpectationsTab() {
+  return (
+    <Box>
+      <Heading size="md" mb={6}>Expectations</Heading>
+      <Text>Expectations interface would be implemented here</Text>
+    </Box>
+  );
+}
+
+function GenerationsTab() {
+  return (
+    <Box>
+      <Heading size="md" mb={6}>Generations</Heading>
+      <Text>Generations interface would be implemented here</Text>
+    </Box>
+  );
+}
+
+function ValidationsTab() {
+  return (
+    <Box>
+      <Heading size="md" mb={6}>Validations</Heading>
+      <Text>Validations interface would be implemented here</Text>
+    </Box>
+  );
+}
+
+function DocumentationTab() {
+  return (
+    <Box>
+      <Heading size="md" mb={6}>Documentation</Heading>
+      <Text>Documentation interface would be implemented here</Text>
+    </Box>
   );
 }
 
