@@ -23,11 +23,20 @@ import {
   CardBody,
   CardHeader,
   Stack,
-  Divider
+  Divider,
+  Badge,
+  List,
+  ListItem,
+  ListIcon,
+  Icon,
+  useColorModeValue
 } from '@chakra-ui/react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { FiCheckCircle, FiAlertCircle, FiInfo } from 'react-icons/fi';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { conversationService } from './services/api';
+import { ExpetaProvider } from './context/ExpetaContext';
 
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -60,21 +69,23 @@ function App() {
   return (
     <ChakraProvider>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }>
-            <Route index element={<ChatInterface />} />
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
-          
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+        <ExpetaProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<ChatInterface />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+            
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </ExpetaProvider>
       </AuthProvider>
     </ChakraProvider>
   );
@@ -84,7 +95,40 @@ function ChatInterface() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [conversationId, setConversationId] = useState(null);
+  const [expectationSummary, setExpectationSummary] = useState(null);
+  const [showSummary, setShowSummary] = useState(false);
   const toast = useToast();
+  
+  useEffect(() => {
+    const createNewConversation = async () => {
+      try {
+        const newConversationId = 'conv-' + Date.now();
+        setConversationId(newConversationId);
+        console.log('Created new conversation:', newConversationId);
+        
+        const welcomeMessage = {
+          id: Date.now(),
+          text: "Welcome to Expeta! I'm your AI assistant specialized in software development. Describe what you want to build, and I'll help clarify requirements and generate code for your project.",
+          sender: 'ai',
+          timestamp: new Date().toISOString()
+        };
+        
+        setMessages([welcomeMessage]);
+      } catch (error) {
+        console.error('Failed to create conversation:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to start a new conversation',
+          status: 'error',
+          duration: 3000,
+          isClosable: true
+        });
+      }
+    };
+    
+    createNewConversation();
+  }, [toast]);
   
   const handleSendMessage = async () => {
     if (!input.trim()) return;
@@ -103,15 +147,23 @@ function ChatInterface() {
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
       
+      const userInput = input; // Store input in a variable since we've reset the state
+      
       const aiMessage = {
         id: Date.now() + 1,
-        text: "I'm analyzing your request. Could you provide more details about what you're trying to build?",
+        text: generateClarifierResponse(userInput),
         sender: 'ai',
         timestamp: new Date().toISOString()
       };
       
       setMessages(prev => [...prev, aiMessage]);
+      
+      if (messages.length >= 1) {
+        generateExpectationSummary(userInput);
+        setShowSummary(true);
+      }
     } catch (error) {
+      console.error('Error processing message:', error);
       toast({
         title: 'Error',
         description: 'Failed to process your message',
@@ -122,6 +174,83 @@ function ChatInterface() {
     } finally {
       setIsProcessing(false);
     }
+  };
+  
+  const generateClarifierResponse = (userInput) => {
+    const userInputLower = userInput.toLowerCase();
+    
+    if (userInputLower.includes('website') || userInputLower.includes('web app') || userInputLower.includes('homepage')) {
+      return "I understand you're looking to build a website. Could you tell me more about its purpose and the key features you'd like to include? For example, is this a personal portfolio, a business site, or something else?";
+    } else if (userInputLower.includes('app') || userInputLower.includes('mobile')) {
+      return "I see you're interested in developing an app. To better understand your requirements, could you share what platform this is for (iOS, Android, or both), and what core functionality you envision?";
+    } else if (userInputLower.includes('api') || userInputLower.includes('backend')) {
+      return "You're looking to develop an API or backend system. Could you elaborate on what data this API will handle, what endpoints you need, and any specific requirements for authentication or performance?";
+    } else {
+      return "I'd like to help clarify your software requirements. Could you provide more details about what you're trying to build? What problem are you trying to solve, and who are the intended users?";
+    }
+  };
+  
+  const generateExpectationSummary = (latestInput) => {
+    
+    const userInputLower = latestInput.toLowerCase();
+    let summary = {
+      name: "Software Project",
+      description: "Based on our conversation, I understand you need a software solution.",
+      acceptance_criteria: [
+        "Must solve the core problem described",
+        "Should be user-friendly and intuitive"
+      ],
+      constraints: [
+        "Must be completed within reasonable timeframe",
+        "Should follow industry best practices"
+      ]
+    };
+    
+    if (userInputLower.includes('website') || userInputLower.includes('web app') || userInputLower.includes('homepage')) {
+      summary = {
+        name: "Website Development",
+        description: "A website that serves your specific needs and target audience.",
+        acceptance_criteria: [
+          "Responsive design that works on mobile and desktop",
+          "Clear navigation and user interface",
+          "Content management capabilities"
+        ],
+        constraints: [
+          "Must follow web accessibility guidelines",
+          "Should load quickly on various devices and connections"
+        ]
+      };
+    } else if (userInputLower.includes('app') || userInputLower.includes('mobile')) {
+      summary = {
+        name: "Mobile Application",
+        description: "A mobile app that delivers value to your users.",
+        acceptance_criteria: [
+          "Intuitive user interface",
+          "Core functionality works offline",
+          "Efficient performance on target devices"
+        ],
+        constraints: [
+          "Must comply with app store guidelines",
+          "Should minimize battery usage"
+        ]
+      };
+    } else if (userInputLower.includes('api') || userInputLower.includes('backend')) {
+      summary = {
+        name: "API/Backend System",
+        description: "A robust backend system to support your application needs.",
+        acceptance_criteria: [
+          "Secure authentication and authorization",
+          "Well-documented API endpoints",
+          "Efficient data processing"
+        ],
+        constraints: [
+          "Must handle expected load",
+          "Should implement proper error handling"
+        ]
+      };
+    }
+    
+    setExpectationSummary(summary);
   };
   
   return (
@@ -147,7 +276,11 @@ function ChatInterface() {
             color="gray.500"
           >
             <Text fontSize="lg" mb={2}>Welcome to Expeta 2.0</Text>
-            <Text>Start a conversation to clarify your software requirements</Text>
+            <Text mb={4}>Start a conversation to clarify your software requirements</Text>
+            <Text fontSize="sm" textAlign="center" maxW="500px">
+              I'm your AI assistant specialized in software development. Describe what you want to build,
+              and I'll help clarify requirements and generate code for your project.
+            </Text>
           </Flex>
         ) : (
           <Stack spacing={4}>
@@ -174,6 +307,48 @@ function ChatInterface() {
                   </CardBody>
                 </Card>
               </Flex>
+            )}
+            
+            {/* Expectation Summary */}
+            {expectationSummary && !isProcessing && (
+              <Card 
+                borderWidth={1}
+                borderColor="green.200"
+                bg="green.50"
+                maxW="100%"
+                mt={4}
+              >
+                <CardHeader pb={0}>
+                  <Flex align="center">
+                    <Icon as={FiInfo} color="green.500" mr={2} />
+                    <Heading size="sm">Understanding Summary</Heading>
+                  </Flex>
+                </CardHeader>
+                <CardBody pt={2}>
+                  <Text fontWeight="bold" mb={1}>{expectationSummary.name}</Text>
+                  <Text mb={2}>{expectationSummary.description}</Text>
+                  
+                  <Text fontWeight="bold" fontSize="sm" mb={1}>Acceptance Criteria:</Text>
+                  <List spacing={1} mb={2}>
+                    {expectationSummary.acceptance_criteria.map((criterion, index) => (
+                      <ListItem key={index} fontSize="sm">
+                        <ListIcon as={FiCheckCircle} color="green.500" />
+                        {criterion}
+                      </ListItem>
+                    ))}
+                  </List>
+                  
+                  <Text fontWeight="bold" fontSize="sm" mb={1}>Constraints:</Text>
+                  <List spacing={1}>
+                    {expectationSummary.constraints.map((constraint, index) => (
+                      <ListItem key={index} fontSize="sm">
+                        <ListIcon as={FiAlertCircle} color="orange.500" />
+                        {constraint}
+                      </ListItem>
+                    ))}
+                  </List>
+                </CardBody>
+              </Card>
             )}
           </Stack>
         )}
@@ -225,4 +400,5 @@ function SettingsPage() {
   );
 }
 
+export { ChatInterface };
 export default App;

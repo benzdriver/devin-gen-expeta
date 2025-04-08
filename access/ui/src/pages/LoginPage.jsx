@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -23,7 +23,14 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, currentUser } = useAuth();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (currentUser) {
+      navigate('/');
+    }
+  }, [currentUser, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,7 +47,13 @@ function LoginPage() {
             avatar: '',
           };
           const token = 'mock-jwt-token';
-          login(userData, token);
+          
+          localStorage.setItem('mockUser', JSON.stringify(userData));
+          localStorage.setItem('authToken', token);
+          
+          login(userData);
+          navigate('/');
+          
           setIsLoading(false);
         }, 1000);
       } else {
@@ -86,6 +99,7 @@ function LoginPage() {
                   type="email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
                 />
               </FormControl>
               <FormControl id="password" isRequired>

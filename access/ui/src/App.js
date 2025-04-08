@@ -6,16 +6,16 @@ import { ExpetaProvider } from './context/ExpetaContext';
 
 // 导入页面
 import {
-  Dashboard,
   GenerationsPage,
   LoginPage,
   RegisterPage,
   NotFoundPage,
   ConversationPage
 } from './pages';
+import ChatInterface from './ui_system';
 
 // 导入布局组件
-import Layout from './components/layout/Layout';
+import Layout from './components/Layout';
 
 // 受保护的路由包装器
 const ProtectedRoute = ({ children }) => {
@@ -50,7 +50,7 @@ function App() {
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Dashboard />} />
+                <Route index element={<ChatInterface />} />
                 <Route path="conversation/:conversationId?" element={<ConversationPage />} />
                 <Route path="generations/:generationId?" element={<GenerationsPage />} />
               </Route>
@@ -64,4 +64,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;    
