@@ -4,7 +4,7 @@
  * This module provides a web-based user interface for Expeta system with a unified chat interface.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ChakraProvider,
   Box,
@@ -42,6 +42,7 @@ import {
   AccordionPanel,
   AccordionIcon
 } from '@chakra-ui/react';
+import { FiFile, FiDownload, FiCode } from 'react-icons/fi';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
@@ -91,6 +92,21 @@ function UnifiedChatInterface() {
   const [tokenUsage, setTokenUsage] = useState(null);
   const [memoryUsage, setMemoryUsage] = useState(null);
   const [availableTokens, setAvailableTokens] = useState(null);
+  
+  const fetchTokenUsage = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:8000/token/usage');
+      if (!response.ok) {
+        throw new Error(`Error fetching token usage: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setTokenUsage(data.usage);
+      setMemoryUsage(data.memory);
+      setAvailableTokens(data.available);
+    } catch (error) {
+      console.error('Failed to fetch token usage:', error);
+    }
+  }, []);
   const [uiState, setUiState] = useState('initial'); // initial, clarifying, confirming, generating, completed, error
   const messagesEndRef = useRef(null);
   const toast = useToast();
@@ -155,6 +171,14 @@ function UnifiedChatInterface() {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+  
+  useEffect(() => {
+    fetchTokenUsage();
+    
+    const intervalId = setInterval(fetchTokenUsage, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(intervalId); // Clean up on unmount
+  }, [fetchTokenUsage]);
   
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !sessionId || isLoading) return;
@@ -346,62 +370,64 @@ function UnifiedChatInterface() {
     <Box>
       <Flex mb={4} justify="space-between" align="center">
         <Heading size="md">Chat with Expeta</Heading>
-        {tokenUsage && (
-          <Tooltip label="Token usage statistics">
-            <Box>
-              <Menu>
-                <MenuButton as={Button} size="sm" colorScheme="blue" variant="outline">
-                  Token Usage
-                </MenuButton>
-                <MenuList p={4}>
-                  <Heading size="sm" mb={3}>Token Usage</Heading>
-                  {Object.entries(tokenUsage).map(([provider, usage]) => (
-                    <Stat key={provider} mb={3}>
-                      <StatLabel>{provider}</StatLabel>
-                      <StatNumber>{usage.total}</StatNumber>
-                      <StatHelpText>tokens used</StatHelpText>
+        <Tooltip label="Token usage statistics">
+          <Box>
+            <Menu>
+              <MenuButton as={Button} size="sm" colorScheme="blue" variant="outline">
+                Token Usage
+              </MenuButton>
+              <MenuList p={4}>
+                <Heading size="sm" mb={3}>Token Usage</Heading>
+                {tokenUsage && Object.entries(tokenUsage).map(([provider, usage]) => (
+                  <Stat key={provider} mb={3}>
+                    <StatLabel>{provider}</StatLabel>
+                    <StatNumber>{usage.total}</StatNumber>
+                    <StatHelpText>tokens used</StatHelpText>
+                  </Stat>
+                ))}
+                
+                {!tokenUsage && (
+                  <Text fontSize="sm" color="gray.500">No token usage data available yet</Text>
+                )}
+                
+                {memoryUsage && (
+                  <>
+                    <Divider my={3} />
+                    <Heading size="sm" mb={3}>Memory Usage</Heading>
+                    <Stat mb={2}>
+                      <StatLabel>Total</StatLabel>
+                      <StatNumber>{memoryUsage.total}</StatNumber>
+                      <StatHelpText>tokens in memory</StatHelpText>
                     </Stat>
-                  ))}
-                  
-                  {memoryUsage && (
-                    <>
-                      <Divider my={3} />
-                      <Heading size="sm" mb={3}>Memory Usage</Heading>
-                      <Stat mb={2}>
-                        <StatLabel>Total</StatLabel>
-                        <StatNumber>{memoryUsage.total}</StatNumber>
-                        <StatHelpText>tokens in memory</StatHelpText>
-                      </Stat>
-                      <Progress 
-                        value={(memoryUsage.total / 100000) * 100} 
-                        colorScheme="blue" 
-                        size="sm" 
-                        mb={3}
-                      />
-                      
-                      <Text fontSize="sm" mb={1}>Breakdown:</Text>
-                      <Text fontSize="sm">Expectations: {memoryUsage.expectations}</Text>
-                      <Text fontSize="sm">Generations: {memoryUsage.generations}</Text>
-                      <Text fontSize="sm">Validations: {memoryUsage.validations}</Text>
-                    </>
-                  )}
-                  
-                  {availableTokens && (
-                    <>
-                      <Divider my={3} />
-                      <Heading size="sm" mb={3}>Available Tokens</Heading>
-                      {Object.entries(availableTokens).map(([model, tokens]) => (
-                        <Text key={model} fontSize="sm">
-                          {model}: {tokens} tokens
-                        </Text>
-                      ))}
-                    </>
-                  )}
-                </MenuList>
-              </Menu>
-            </Box>
-          </Tooltip>
-        )}
+                    <Progress 
+                      value={(memoryUsage.total / 100000) * 100} 
+                      colorScheme="blue" 
+                      size="sm" 
+                      mb={3}
+                    />
+                    
+                    <Text fontSize="sm" mb={1}>Breakdown:</Text>
+                    <Text fontSize="sm">Expectations: {memoryUsage.expectations}</Text>
+                    <Text fontSize="sm">Generations: {memoryUsage.generations}</Text>
+                    <Text fontSize="sm">Validations: {memoryUsage.validations}</Text>
+                  </>
+                )}
+                
+                {availableTokens && (
+                  <>
+                    <Divider my={3} />
+                    <Heading size="sm" mb={3}>Available Tokens</Heading>
+                    {Object.entries(availableTokens).map(([model, tokens]) => (
+                      <Text key={model} fontSize="sm">
+                        {model}: {tokens} tokens
+                      </Text>
+                    ))}
+                  </>
+                )}
+              </MenuList>
+            </Menu>
+          </Box>
+        </Tooltip>
       </Flex>
       
       {/* Chat Messages */}
@@ -816,6 +842,9 @@ function GenerateTab() {
   const [error, setError] = useState(null);
   const [generatedFiles, setGeneratedFiles] = useState([]);
   const [expectation, setExpectation] = useState(null);
+  const [generationStatus, setGenerationStatus] = useState('');
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [streamingFiles, setStreamingFiles] = useState([]);
   const toast = useToast();
   
   const handleGenerate = async () => {
@@ -850,19 +879,107 @@ function GenerateTab() {
       if (generationResponse.ok) {
         generationData = await generationResponse.json();
       } else {
-        const generateResponse = await fetch(`${API_BASE_URL}/generate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(expectationData),
+        setGenerationStatus('Starting code generation...');
+        setGenerationProgress(0);
+        setStreamingFiles([]);
+        
+        const eventSource = new EventSource(`${API_BASE_URL}/generate/stream/${expectationId}`);
+        
+        let receivedData = false;
+        
+        eventSource.onmessage = (event) => {
+          receivedData = true;
+          const data = JSON.parse(event.data);
+          
+          if (data.status) {
+            setGenerationStatus(data.message || data.status);
+            
+            switch(data.status) {
+              case 'extracting_concepts':
+                setGenerationProgress(10);
+                break;
+              case 'extracting_constraints':
+                setGenerationProgress(20);
+                break;
+              case 'generating_code':
+                setGenerationProgress(40);
+                break;
+              case 'validating_code':
+                setGenerationProgress(80);
+                break;
+              case 'fixing_issues':
+                setGenerationProgress(90);
+                break;
+              case 'completed':
+                setGenerationProgress(100);
+                break;
+              default:
+                setGenerationProgress(prev => Math.min(prev + 5, 95));
+            }
+          }
+          
+          if (data.files) {
+            setStreamingFiles(data.files);
+          }
+          
+          if (data.status === 'completed') {
+            eventSource.close();
+          }
+        };
+        
+        eventSource.onerror = (error) => {
+          console.error('EventSource error:', error);
+          eventSource.close();
+          
+          if (!receivedData) {
+            fallbackToRegularApi();
+          }
+        };
+        
+        const fallbackToRegularApi = async () => {
+          try {
+            const generateResponse = await fetch(`${API_BASE_URL}/generate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(expectationData),
+            });
+            
+            if (!generateResponse.ok) {
+              throw new Error(`Failed to generate code: ${generateResponse.statusText}`);
+            }
+            
+            generationData = await generateResponse.json();
+            
+            setGeneratedFiles(generationData.files);
+            setGenerationStatus('Completed');
+            setGenerationProgress(100);
+          } catch (err) {
+            throw new Error(`Failed to generate code: ${err.message}`);
+          }
+        };
+        
+        await new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            eventSource.close();
+            if (!receivedData) {
+              fallbackToRegularApi().then(resolve).catch(reject);
+            } else {
+              resolve();
+            }
+          }, 30000);
+          
+          eventSource.addEventListener('completed', () => {
+            clearTimeout(timeoutId);
+            resolve();
+          });
         });
         
-        if (!generateResponse.ok) {
-          throw new Error(`Failed to generate code: ${generateResponse.statusText}`);
+        const finalResponse = await fetch(`${API_BASE_URL}/memory/generations/${expectationId}`);
+        if (finalResponse.ok) {
+          generationData = await finalResponse.json();
         }
-        
-        generationData = await generateResponse.json();
       }
       
       const data = {
@@ -1009,6 +1126,31 @@ function GenerateTab() {
           <AlertIcon />
           {error}
         </Alert>
+      )}
+      
+      {/* Generation Progress Display */}
+      {processing && (
+        <Box bg="white" p={6} borderRadius="md" shadow="md" mb={6}>
+          <Heading size="sm" mb={4}>Generation Progress</Heading>
+          <Text mb={2}>{generationStatus}</Text>
+          <Progress value={generationProgress} colorScheme="blue" size="sm" mb={4} />
+          
+          {streamingFiles.length > 0 && (
+            <Box mt={4}>
+              <Text fontWeight="bold">Files being generated:</Text>
+              <List spacing={2} mt={2}>
+                {streamingFiles.map((file, index) => (
+                  <ListItem key={index}>
+                    <HStack>
+                      <Icon as={FiFile} />
+                      <Text>{file.path || `file${index+1}`}</Text>
+                    </HStack>
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
+        </Box>
       )}
       
       {expectation && (
