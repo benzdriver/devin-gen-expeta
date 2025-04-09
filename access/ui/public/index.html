@@ -9,6 +9,84 @@
       content="Expeta 2.0 - Semantic-Driven Software Development"
     />
     <title>Expeta 2.0</title>
+    <!-- Debug script to track form submissions -->
+    <script>
+      // Debug script to track form submissions and redirects
+      console.log('Debug form script loaded');
+
+      // Track all form submissions
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, setting up form tracking');
+        
+        // Track all form submissions
+        document.addEventListener('submit', function(e) {
+          console.log('Form submission detected:', e);
+          console.log('Form target:', e.target);
+          console.log('Form action:', e.target.action);
+          console.log('Form method:', e.target.method);
+          
+          // Always prevent default form submission in debug mode
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Default form submission prevented');
+          
+          return false;
+        }, true);
+        
+        // Track all clicks
+        document.addEventListener('click', function(e) {
+          console.log('Click detected on:', e.target);
+          console.log('Target tag:', e.target.tagName);
+          console.log('Target id:', e.target.id);
+          console.log('Target class:', e.target.className);
+        }, true);
+        
+        // Track all keydown events
+        document.addEventListener('keydown', function(e) {
+          console.log('Keydown detected:', e.key);
+          console.log('Target:', e.target);
+          
+          // Prevent Enter key from submitting forms
+          if (e.key === 'Enter' && !e.shiftKey) {
+            console.log('Enter key detected, checking if in form');
+            
+            // Check if the target is in a form
+            let element = e.target;
+            while (element && element.tagName !== 'FORM') {
+              element = element.parentElement;
+            }
+            
+            if (element) {
+              console.log('Enter key in form, preventing default');
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }
+        }, true);
+        
+        // Track navigation events
+        window.addEventListener('beforeunload', function(e) {
+          console.log('Navigation detected');
+          console.log('Current URL:', window.location.href);
+          console.log('Referrer:', document.referrer);
+          
+          // Log the event for debugging
+          const logData = {
+            timestamp: new Date().toISOString(),
+            url: window.location.href,
+            referrer: document.referrer
+          };
+          
+          console.log('Navigation log:', JSON.stringify(logData));
+          
+          // Uncomment to prevent navigation during debugging
+          e.preventDefault();
+          e.returnValue = '';
+        });
+        
+        console.log('Form tracking setup complete');
+      });
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
