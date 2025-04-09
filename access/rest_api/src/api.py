@@ -348,6 +348,61 @@ async def get_validation(expectation_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class ChatSessionRequest(BaseModel):
+    user_message: str
+    session_id: Optional[str] = None
+
+class ChatSessionResponse(BaseModel):
+    session_id: str
+    messages: List[Dict[str, Any]]
+    status: str
+    token_usage: Optional[Dict[str, Any]] = None
+
+@app.post("/chat/session")
+async def create_chat_session(request: ChatSessionRequest):
+    """Create or continue a chat session"""
+    try:
+        session_id = request.session_id or f"session_{import_time().replace(':', '-').replace('.', '-')}"
+        
+        return {
+            "session_id": session_id,
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "Hello! I'm Expeta, your product manager. How can I help you build software today?",
+                    "timestamp": import_time()
+                },
+                {
+                    "role": "user",
+                    "content": request.user_message,
+                    "timestamp": import_time()
+                },
+                {
+                    "role": "assistant",
+                    "content": "I understand you want to build something. Let me help clarify your requirements. Could you tell me more about what features you need?",
+                    "timestamp": import_time()
+                }
+            ],
+            "status": "clarifying",
+            "token_usage": expeta.token_tracker.get_summary() if hasattr(expeta, "token_tracker") else None
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/token/usage")
+async def get_token_usage():
+    """Get token usage statistics"""
+    try:
+        token_tracker = TokenTracker()
+        return {
+            "usage": token_tracker.get_summary(),
+            "memory": token_tracker.get_memory_usage(),
+            "available": token_tracker.get_available_tokens(),
+            "limits": token_tracker.get_token_limits()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/protected")
 async def protected_route(token: str = Depends(verify_token)):
     """Protected route example"""

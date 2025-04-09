@@ -103,7 +103,10 @@ function UnifiedChatInterface() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ user_id: 'user-' + Date.now() }),
+          body: JSON.stringify({ 
+            user_message: 'Hello',
+            session_id: null
+          }),
         });
         
         if (!response.ok) {
@@ -113,13 +116,25 @@ function UnifiedChatInterface() {
         const data = await response.json();
         setSessionId(data.session_id);
         
-        setMessages([
-          {
-            role: 'assistant',
-            content: 'Welcome to Expeta 2.0! I\'m your product manager assistant. How can I help you with your software project today?',
-            timestamp: new Date().toISOString()
-          }
-        ]);
+        if (data.messages && Array.isArray(data.messages)) {
+          setMessages(data.messages);
+        } else {
+          setMessages([
+            {
+              role: 'assistant',
+              content: 'Welcome to Expeta 2.0! I\'m your product manager assistant. How can I help you with your software project today?',
+              timestamp: new Date().toISOString()
+            }
+          ]);
+        }
+        
+        if (data.status) {
+          setUiState(data.status);
+        }
+        
+        if (data.token_usage) {
+          setTokenUsage(data.token_usage);
+        }
       } catch (error) {
         console.error('Error initializing session:', error);
         toast({
@@ -155,13 +170,13 @@ function UnifiedChatInterface() {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/chat/message`, {
+      const response = await fetch(`${API_BASE_URL}/chat/session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: userMessage.content,
+          user_message: userMessage.content,
           session_id: sessionId
         }),
       });
