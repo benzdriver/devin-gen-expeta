@@ -7,6 +7,7 @@ This module provides RESTful API endpoints for external systems to interact with
 import os
 import sys
 from typing import Dict, Any, Optional, List
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Body, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import io
 import zipfile
+
+def import_time():
+    """Get current time in ISO format"""
+    return datetime.now().isoformat()
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
@@ -462,10 +467,6 @@ async def add_response_metadata(request: Request, call_next):
     
     return response
 
-def import_time():
-    """Get current time in ISO format"""
-    from datetime import datetime
-    return datetime.now().isoformat()
 
 if __name__ == "__main__":
     import uvicorn
