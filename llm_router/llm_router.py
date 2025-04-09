@@ -122,7 +122,10 @@ class LLMRouter:
             
         if "anthropic" in provider_configs:
             from .providers.anthropic_provider import AnthropicProvider
-            providers["anthropic"] = AnthropicProvider(provider_configs["anthropic"])
+            config = provider_configs["anthropic"].copy()
+            if "proxies" in config:
+                del config["proxies"]
+            providers["anthropic"] = AnthropicProvider(config)
             
         if "local" in provider_configs:
             from .providers.local_provider import LocalProvider

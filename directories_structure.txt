@@ -1,0 +1,204 @@
+.
+├── README.md
+├── __init__.py
+├── access
+│   ├── chat
+│   │   ├── expectations.yaml
+│   │   └── src
+│   │       └── chat_interface.py
+│   ├── cli
+│   │   ├── expectations.yaml
+│   │   └── src
+│   │       └── cli_tool.py
+│   ├── graphql
+│   │   ├── expectations.yaml
+│   │   └── src
+│   │       ├── api.py
+│   │       ├── conversation.py
+│   │       ├── generation.py
+│   │       └── storage.py
+│   ├── rest_api
+│   │   ├── expectations.yaml
+│   │   └── src
+│   │       └── api.py
+│   ├── shared
+│   │   ├── models
+│   │   │   ├── ConversationModel.js
+│   │   │   ├── ExpectationModel.js
+│   │   │   └── GenerationModel.js
+│   │   ├── states
+│   │   │   └── ConverstationStates.js
+│   │   └── validators
+│   │       └── ExpectationValidator.js
+│   └── ui
+│       ├── README.md
+│       ├── directories_structure.txt
+│       ├── expectations.yaml
+│       ├── package-lock.json
+│       ├── package.json
+│       ├── public
+│       │   ├── index.html
+│       │   ├── manifest.json
+│       │   └── robots.txt
+│       └── src
+│           ├── App.js
+│           ├── components
+│           │   ├── code
+│           │   │   └── CodeViewer.js
+│           │   ├── common
+│           │   │   ├── CodeViewer.js
+│           │   │   ├── ExpectationCard.js
+│           │   │   └── index.js
+│           │   ├── conversation
+│           │   │   ├── ConversationPanel.js
+│           │   │   ├── MessageInput.js
+│           │   │   └── MessageList.js
+│           │   ├── expectation
+│           │   │   └── ExpectationSummary.js
+│           │   └── layout
+│           │       ├── Footer.js
+│           │       ├── Header.js
+│           │       ├── Layout.js
+│           │       └── Sidebar.js
+│           ├── context
+│           │   ├── AuthContext.js
+│           │   ├── ConversationContext.js
+│           │   └── ExpetaContext.js
+│           ├── hooks
+│           │   ├── useConversation.js
+│           │   └── useGeneration.js
+│           ├── index.js
+│           ├── pages
+│           │   ├── ConversationPage.js
+│           │   ├── Dashboard.js
+│           │   ├── GenerationsPage.js
+│           │   ├── LoginPage.js
+│           │   ├── NotFoundPage.js
+│           │   ├── RegisterPage.js
+│           │   └── index.js
+│           ├── reportWebVitals.js
+│           ├── services
+│           │   ├── WebSocketService.js
+│           │   └── api.js
+│           └── ui_system.jsx
+├── api_gateway
+│   ├── auth_manager.py
+│   ├── expectations.yaml
+│   ├── request_router.py
+│   └── response_formatter.py
+├── clarifier
+│   ├── __init__.py
+│   ├── clarifier.py
+│   ├── expectation_builder.py
+│   └── expectations.yaml
+├── clarifier_report.json
+├── directories_structure.txt
+├── docs
+│   └── usage_guide_zh.md
+├── enhanced_clarifier
+│   ├── __init__.py
+│   └── enhanced_clarifier.py
+├── event_system
+│   ├── __init__.py
+│   ├── event_bus.py
+│   ├── expectations.yaml
+│   ├── handlers
+│   │   ├── __init__.py
+│   │   └── base_handler.py
+│   └── registry.py
+├── generator
+│   ├── __init__.py
+│   ├── expectations.yaml
+│   └── generator.py
+├── integration_tests.py
+├── llm_router
+│   ├── __init__.py
+│   ├── expectations.yaml
+│   ├── llm_router.py
+│   └── providers
+│       ├── __init__.py
+│       ├── anthropic_provider.py
+│       ├── local_provider.py
+│       └── openai_provider.py
+├── memory
+│   ├── __init__.py
+│   ├── expectations.yaml
+│   ├── memory_system.py
+│   └── storage
+│       ├── __init__.py
+│       ├── db_storage.py
+│       └── file_storage.py
+├── orchestrator
+│   ├── __init__.py
+│   ├── _mock_data.py
+│   ├── api.py
+│   ├── config.py
+│   ├── expectations.yaml
+│   ├── expeta.py
+│   ├── orchestrator.py
+│   ├── system_monitor.py
+│   ├── task_manager.py
+│   └── workflow_engine.py
+├── orchestrator.py
+├── poetry.lock
+├── pyproject.toml
+├── requirements.txt
+├── resolver
+│   ├── __init__.py
+│   ├── expectations.yaml
+│   └── resolver.py
+├── scripts
+│   └── generate_access_layer.py
+├── semantic_mediator
+│   ├── __init__.py
+│   ├── cache_manager.py
+│   ├── expectations.yaml
+│   ├── mediator.py
+│   ├── promotion_service.py
+│   ├── semantic_registry.py
+│   └── transformation_engine.py
+├── test_enhanced_clarifier.py
+├── test_mvp.py
+├── tests
+│   ├── access
+│   │   ├── test_chat.py
+│   │   ├── test_cli.py
+│   │   ├── test_graphql.py
+│   │   ├── test_integration.py
+│   │   ├── test_real_llm_integration.py
+│   │   ├── test_rest_api.py
+│   │   └── test_ui.js
+│   ├── api_gateway
+│   │   ├── test_auth_manager.py
+│   │   ├── test_request_router.py
+│   │   └── test_response_formatter.py
+│   ├── event_system
+│   │   ├── test_base_handler.py
+│   │   ├── test_event_bus.py
+│   │   └── test_registry.py
+│   ├── orchestration
+│   │   ├── test_integration.py
+│   │   ├── test_orchestrator_api_gateway.py
+│   │   └── test_orchestrator_event_system.py
+│   └── orchestrator
+│       ├── test_system_monitor.py
+│       ├── test_task_manager.py
+│       └── test_workflow_engine.py
+├── ui
+│   └── __init__.py
+├── utils
+│   ├── __init__.py
+│   ├── config.py
+│   ├── env_loader.py
+│   ├── logging.py
+│   ├── testing.py
+│   └── token_tracker.py
+└── validator
+    ├── __init__.py
+    ├── expectations.yaml
+    ├── semantic_analyzer.py
+    ├── test_generator.py
+    ├── test_system.py
+    └── validator.py
+
+51 directories, 151 files

@@ -16,6 +16,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import io
 import zipfile
+import uuid
 
 def import_time():
     """Get current time in ISO format"""
@@ -52,7 +53,7 @@ config = {
         "default_provider": "anthropic",
         "providers": {
             "anthropic": {
-                "model": "claude-3-5-sonnet",
+                "model": "claude-3-sonnet-20240229",
                 "temperature": 0.7,
                 "max_tokens": 1000
             },
@@ -74,6 +75,7 @@ expeta = Expeta(config=config)
 
 class RequirementRequest(BaseModel):
     text: str
+    conversation_id: Optional[str] = None
     
 class ExpectationRequest(BaseModel):
     expectation: Dict[str, Any]
@@ -151,7 +153,7 @@ async def process_expectation(request: ExpectationRequest):
 async def clarify_requirement(request: RequirementRequest):
     """Clarify a natural language requirement"""
     try:
-        result = expeta.clarifier.clarify_requirement(request.text)
+        result = expeta.clarifier.clarify_requirement(request.text, request.conversation_id)
         expeta.clarifier.sync_to_memory(expeta.memory_system)
         return result
     except Exception as e:
@@ -467,6 +469,31 @@ async def add_response_metadata(request: Request, call_next):
     
     return response
 
+@app.get("/clarify/conversations")
+async def get_conversations():
+    """Get all clarification conversations"""
+    try:
+        conversations = expeta.clarifier._active_conversations
+        return {"conversations": [
+            {
+                "id": conv_id,
+                "current_expectation": conv["current_expectation"],
+                "stage": conv["stage"],
+                "previous_messages": conv["previous_messages"]
+            }
+            for conv_id, conv in conversations.items()
+        ]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/memory/expectations")
+async def get_expectations():
+    """Get all expectations from memory"""
+    try:
+        expectations = expeta.memory_system.get_all_expectations()
+        return {"expectations": expectations}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

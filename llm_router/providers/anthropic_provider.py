@@ -47,6 +47,7 @@ class AnthropicProvider:
         try:
             import anthropic
             import os
+            import requests
             from utils.env_loader import load_dotenv
             
             load_dotenv()
@@ -55,7 +56,27 @@ class AnthropicProvider:
             if not api_key:
                 raise ValueError("Anthropic API key not found. Set it in config or ANTHROPIC_API_KEY environment variable.")
             
-            self.client = anthropic.Anthropic(api_key=api_key)
+            # Configure proxy settings from environment variables
+            proxies = {}
+            http_proxy = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+            https_proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+            
+            if http_proxy:
+                proxies["http"] = http_proxy
+            if https_proxy:
+                proxies["https"] = https_proxy
+                
+            # Create session with proxy settings if needed
+            session = requests.Session()
+            if proxies:
+                session.proxies.update(proxies)
+                
+            # Initialize Anthropic client with custom session
+            self.client = anthropic.Anthropic(
+                api_key=api_key,
+                http_client=session
+            )
+            
         except ImportError:
             raise ImportError("Anthropic package not installed. Install with 'pip install anthropic'")
         except Exception as e:
@@ -72,16 +93,16 @@ class AnthropicProvider:
         """
         params = {
             "model": self.config.get("model", "claude-3-sonnet-20240229"),
-            "temperature": self.config.get("temperature", 0.7),
-            "max_tokens": self.config.get("max_tokens", 1000)
+            "max_tokens": self.config.get("max_tokens", 1000),
+            "temperature": self.config.get("temperature", 0.7)
         }
         
         if "model" in options:
             params["model"] = options["model"]
-        if "temperature" in options:
-            params["temperature"] = options["temperature"]
         if "max_tokens" in options:
             params["max_tokens"] = options["max_tokens"]
+        if "temperature" in options:
+            params["temperature"] = options["temperature"]
             
         return params
         
@@ -90,36 +111,34 @@ class AnthropicProvider:
         
         Args:
             prompt: Prompt text
-            params: API parameters
+            params: Parameters dictionary
             
         Returns:
-            Raw API response
+            API response
         """
-        response = self.client.messages.create(
-            model=params["model"],
-            max_tokens=params["max_tokens"],
-            temperature=params["temperature"],
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        return response
-        
+        try:
+            response = self.client.messages.create(
+                model=params["model"],
+                max_tokens=params["max_tokens"],
+                temperature=params["temperature"],
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response
+        except Exception as e:
+            raise Exception(f"Anthropic API call failed: {str(e)}")
+            
     def _process_response(self, response):
         """Process API response
         
         Args:
-            response: Raw API response
+            response: API response
             
         Returns:
             Processed response dictionary
         """
         try:
-            content = response.content[0].text
-            
             return {
-                "content": content,
+                "content": response.content[0].text,
                 "provider": "anthropic",
                 "model": response.model,
                 "usage": {
@@ -128,8 +147,4 @@ class AnthropicProvider:
                 }
             }
         except Exception as e:
-            return {
-                "error": True,
-                "message": f"Failed to process response: {str(e)}",
-                "provider": "anthropic"
-            }
+            raise Exception(f"Failed to process Anthropic response: {str(e)}")
