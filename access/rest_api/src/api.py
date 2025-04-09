@@ -16,12 +16,12 @@ from pydantic import BaseModel
 import io
 import zipfile
 
-from utils.token_tracker import TokenTracker
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 from orchestrator.orchestrator import Expeta
+from utils.token_tracker import TokenTracker
 from utils.env_loader import load_dotenv
+from memory.storage.file_storage import FileStorage
 
 load_dotenv()
 
@@ -61,6 +61,10 @@ config = {
     }
 }
 
+config["memory_system"] = {
+    "storage_type": "file",
+    "storage_path": FileStorage()._get_default_base_dir()
+}
 expeta = Expeta(config=config)
 
 class RequirementRequest(BaseModel):
@@ -178,6 +182,10 @@ async def get_expectation(expectation_id: str):
         result = expeta.memory_system.get_expectation(expectation_id)
         if not result:
             raise HTTPException(status_code=404, detail="Expectation not found")
+        
+        if isinstance(result, list) and len(result) > 0:
+            return result[0]
+        
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -194,6 +202,9 @@ async def download_expectation(expectation_id: str, format: str = "yaml"):
         expectation = expeta.memory_system.get_expectation(expectation_id)
         if not expectation:
             raise HTTPException(status_code=404, detail="Expectation not found")
+        
+        if isinstance(expectation, list) and len(expectation) > 0:
+            expectation = expectation[0]
         
         if format.lower() == "json":
             import json
@@ -225,6 +236,10 @@ async def get_generation(expectation_id: str):
         result = expeta.memory_system.get_code_for_expectation(expectation_id)
         if not result:
             raise HTTPException(status_code=404, detail="Generation not found")
+        
+        if isinstance(result, list) and len(result) > 0:
+            return result[0]
+            
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -241,6 +256,9 @@ async def download_code(expectation_id: str, format: str = "zip"):
         generation = expeta.memory_system.get_code_for_expectation(expectation_id)
         if not generation:
             raise HTTPException(status_code=404, detail="Generation not found")
+        
+        if isinstance(generation, list) and len(generation) > 0:
+            generation = generation[0]
         
         files = generation.get("files", [])
         if not files:
@@ -277,6 +295,9 @@ async def download_single_file(expectation_id: str, file_name: str):
         generation = expeta.memory_system.get_code_for_expectation(expectation_id)
         if not generation:
             raise HTTPException(status_code=404, detail="Generation not found")
+        
+        if isinstance(generation, list) and len(generation) > 0:
+            generation = generation[0]
         
         files = generation.get("files", [])
         if not files:
