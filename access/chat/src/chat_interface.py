@@ -121,7 +121,7 @@ class ChatInterface:
         return False
     
     def process_message(self, message: str, user_id: str, session_id: Optional[str] = None) -> Dict[str, Any]:
-        """Process a chat message
+        """Process a chat message in a unified chat interface
         
         Args:
             message: User message text
@@ -129,86 +129,468 @@ class ChatInterface:
             session_id: Optional session identifier. If not provided, a new session will be created.
             
         Returns:
-            Response data
+            Response data with conversation state and UI display information
         """
         if not session_id:
             session_id = self.create_session(user_id)
         elif session_id not in self.dialog_manager.sessions:
             session_id = self.create_session(user_id)
+            
+        self.dialog_manager.add_message(session_id, "user", message)
         
         with self.token_tracker.track("chat_process"):
-            try:
-                result = self.expeta.clarifier.clarify_requirement(message)
+            context_id = self.dialog_manager.sessions[session_id]["context"]
+            context = self.context_tracker.get_context(context_id)
+            context_data = context.get("data", {})
+            
+            conversation_id = context_data.get("conversation_id")
+            clarification_stage = context_data.get("clarification_stage", "initial")
+            current_expectation = context_data.get("current_expectation", {})
+            generation_status = context_data.get("generation_status", {})
+            
+            if clarification_stage == "initial" and not conversation_id:
+                welcome_response = self._create_welcome_message()
+                self.dialog_manager.add_message(session_id, "assistant", welcome_response["response"])
                 
-                if result.get("requires_clarification", False):
-                    context_id = self.dialog_manager.sessions[session_id]["context"]
+                try:
+                    result = self.expeta.clarifier.clarify_requirement("I need help with a software project", True)
+                    conversation_id = result.get("conversation_id")
+                    
                     self.context_tracker.update_context_data(context_id, {
-                        "conversation_id": result.get("conversation_id"),
+                        "conversation_id": conversation_id,
+                        "clarification_stage": "introduction",
+                        "current_expectation": {}
+                    })
+                    
+                    intro_response = {
+                        "response": "I'm your product manager assistant. I'll help you clarify your software requirements and turn them into working code. What kind of software project are you looking to build?",
+                        "success": True,
+                        "requires_clarification": True,
+                        "conversation_id": conversation_id,
+                        "ui_state": "clarifying"
+                    }
+                    
+                    self.dialog_manager.add_message(session_id, "assistant", intro_response["response"])
+                    return intro_response
+                except Exception as e:
+                    fallback_response = {
+                        "response": "I'm your product manager assistant. I'll help you clarify your software requirements. What kind of software project are you looking to build?",
+                        "success": True,
+                        "ui_state": "clarifying"
+                    }
+                    self.dialog_manager.add_message(session_id, "assistant", fallback_response["response"])
+                    return fallback_response
+            
+            try:
+                if clarification_stage in ["introduction", "awaiting_details", "clarifying"]:
+                    if conversation_id:
+                        result = self.expeta.clarifier.continue_conversation(conversation_id, message)
+                    else:
+                        result = self.expeta.clarifier.clarify_requirement(message, True)
+                        conversation_id = result.get("conversation_id")
+                    
+                    if result.get("requires_clarification", False) or result.get("stage") == "awaiting_details":
+                        self.context_tracker.update_context_data(context_id, {
+                            "conversation_id": conversation_id,
+                            "clarification_stage": "awaiting_details",
+                            "current_expectation": result.get("current_expectation", {})
+                        })
+                        
+                        response = {
+                            "response": result.get("response", "I need some clarification about your requirement."),
+                            "success": True,
+                            "requires_clarification": True,
+                            "conversation_id": conversation_id,
+                            "ui_state": "clarifying"
+                        }
+                    else:
+                        self.expeta.clarifier.sync_to_memory(self.expeta.memory_system)
+                        
+                        if "result" in result:
+                            top_level = result["result"].get("top_level_expectation", {})
+                            sub_expectations = result["result"].get("sub_expectations", [])
+                        else:
+                            top_level = result.get("current_expectation", {})
+                            sub_expectations = []
+                        
+                        summary = self._create_expectation_summary(top_level, sub_expectations)
+                        
+                        self.context_tracker.update_context_data(context_id, {
+                            "conversation_id": conversation_id,
+                            "clarification_stage": "confirmation",
+                            "expectation": top_level,
+                            "sub_expectations": sub_expectations,
+                            "summary": summary
+                        })
+                        
+                        response = {
+                            "response": f"{summary}\n\nDoes this accurately capture your requirements? If yes, I'll proceed with code generation. If not, please let me know what needs to be adjusted.",
+                            "expectation": top_level,
+                            "sub_expectations": sub_expectations,
+                            "success": True,
+                            "ui_state": "confirming"
+                        }
+                elif clarification_stage == "confirmation":
+                    if self._is_confirmation_positive(message):
+                        expectation = context_data.get("expectation", {})
+                        
+                        self.context_tracker.update_context_data(context_id, {
+                            "clarification_stage": "generating",
+                            "generation_started": True
+                        })
+                        
+                        response = {
+                            "response": "Great! I'll start generating code based on your requirements. This may take a moment...",
+                            "success": True,
+                            "ui_state": "generating",
+                            "expectation": expectation
+                        }
+                        
+                        self.dialog_manager.add_message(session_id, "assistant", response["response"])
+                        
+                        try:
+                            def generation_callback(update):
+                                update_message = f"Generation update: {update.get('message', '')}"
+                                self.dialog_manager.add_message(session_id, "assistant", update_message)
+                            
+                            generation_result = self.expeta.generator.generate(expectation, generation_callback)
+                            
+                            self.expeta.generator.sync_to_memory(self.expeta.memory_system)
+                            
+                            self.context_tracker.update_context_data(context_id, {
+                                "clarification_stage": "completed",
+                                "generation": generation_result,
+                                "generation_status": "completed"
+                            })
+                            
+                            files = generation_result.get("files", [])
+                            file_summary = self._create_file_summary(files)
+                            
+                            final_response = {
+                                "response": f"I've successfully generated code based on your requirements!\n\n{file_summary}\n\nYou can download individual files, all files as a ZIP, or the structured expectations in YAML format using the buttons below.",
+                                "success": True,
+                                "ui_state": "completed",
+                                "expectation": expectation,
+                                "files": files,
+                                "show_downloads": True,
+                                "expectation_id": expectation.get("id")
+                            }
+                            
+                            self.dialog_manager.add_message(session_id, "assistant", final_response["response"])
+                            
+                            # Add token usage information
+                            token_usage = self.token_tracker.get_usage_report()
+                            memory_usage = self.token_tracker.get_memory_usage() if hasattr(self.token_tracker, "get_memory_usage") else {}
+                            available_tokens = self.token_tracker.get_available_tokens() if hasattr(self.token_tracker, "get_available_tokens") else {}
+                            
+                            final_response["token_usage"] = token_usage
+                            final_response["memory_usage"] = memory_usage
+                            final_response["available_tokens"] = available_tokens
+                            
+                            return final_response
+                        except Exception as e:
+                            error_response = {
+                                "response": f"I encountered an error while generating code: {str(e)}. Would you like me to try again?",
+                                "success": False,
+                                "ui_state": "error",
+                                "error": str(e)
+                            }
+                            self.dialog_manager.add_message(session_id, "assistant", error_response["response"])
+                            return error_response
+                    else:
+                        self.context_tracker.update_context_data(context_id, {
+                            "clarification_stage": "awaiting_details"
+                        })
+                        
+                        result = self.expeta.clarifier.continue_conversation(conversation_id, message)
+                        
+                        response = {
+                            "response": result.get("response", "I understand you want to make adjustments. Please tell me what needs to be changed."),
+                            "success": True,
+                            "requires_clarification": True,
+                            "conversation_id": conversation_id,
+                            "ui_state": "clarifying"
+                        }
+                elif clarification_stage == "generating":
+                    expectation = context_data.get("expectation", {})
+                    expectation_id = expectation.get("id")
+                    
+                    if expectation_id:
+                        generation_status = self.expeta.generator.get_generation_status(expectation_id)
+                        
+                        if generation_status.get("status") == "completed":
+                            generation = context_data.get("generation", {})
+                            files = generation.get("files", [])
+                            
+                            file_summary = self._create_file_summary(files)
+                            
+                            response = {
+                                "response": f"Code generation is complete!\n\n{file_summary}\n\nYou can download individual files, all files as a ZIP, or the structured expectations in YAML format using the buttons below.",
+                                "success": True,
+                                "ui_state": "completed",
+                                "expectation": expectation,
+                                "files": files,
+                                "show_downloads": True,
+                                "expectation_id": expectation_id
+                            }
+                        elif generation_status.get("status") == "error":
+                            error = generation_status.get("error", "Unknown error")
+                            
+                            response = {
+                                "response": f"There was an error during code generation: {error}. Would you like me to try to resume from where it left off?",
+                                "success": False,
+                                "ui_state": "error",
+                                "error": error,
+                                "can_resume": True,
+                                "expectation_id": expectation_id
+                            }
+                        else:
+                            status = generation_status.get("status", "in_progress")
+                            message = generation_status.get("message", "Still generating code...")
+                            
+                            response = {
+                                "response": f"Code generation is in progress. Current status: {message}",
+                                "success": True,
+                                "ui_state": "generating",
+                                "generation_status": status,
+                                "expectation_id": expectation_id
+                            }
+                    else:
+                        response = {
+                            "response": "I couldn't find the expectation details needed for code generation. Would you like to restart the clarification process?",
+                            "success": False,
+                            "ui_state": "error"
+                        }
+                elif clarification_stage == "completed":
+                    if "resume" in message.lower() or "retry" in message.lower():
+                        expectation = context_data.get("expectation", {})
+                        expectation_id = expectation.get("id")
+                        
+                        if expectation_id:
+                            self.context_tracker.update_context_data(context_id, {
+                                "clarification_stage": "generating",
+                                "generation_status": "resuming"
+                            })
+                            
+                            response = {
+                                "response": "I'll try to resume the code generation from where it left off...",
+                                "success": True,
+                                "ui_state": "generating",
+                                "expectation_id": expectation_id
+                            }
+                            
+                            self.dialog_manager.add_message(session_id, "assistant", response["response"])
+                            
+                            try:
+                                def generation_callback(update):
+                                    update_message = f"Generation update: {update.get('message', '')}"
+                                    self.dialog_manager.add_message(session_id, "assistant", update_message)
+                                
+                                generation_result = self.expeta.generator.resume_generation(expectation_id, generation_callback)
+                                
+                                self.expeta.generator.sync_to_memory(self.expeta.memory_system)
+                                
+                                self.context_tracker.update_context_data(context_id, {
+                                    "clarification_stage": "completed",
+                                    "generation": generation_result,
+                                    "generation_status": "completed"
+                                })
+                                
+                                files = generation_result.get("files", [])
+                                file_summary = self._create_file_summary(files)
+                                
+                                final_response = {
+                                    "response": f"I've successfully resumed and completed the code generation!\n\n{file_summary}\n\nYou can download individual files, all files as a ZIP, or the structured expectations in YAML format using the buttons below.",
+                                    "success": True,
+                                    "ui_state": "completed",
+                                    "expectation": expectation,
+                                    "files": files,
+                                    "show_downloads": True,
+                                    "expectation_id": expectation_id
+                                }
+                                
+                                self.dialog_manager.add_message(session_id, "assistant", final_response["response"])
+                                
+                                return final_response
+                            except Exception as e:
+                                error_response = {
+                                    "response": f"I encountered an error while resuming code generation: {str(e)}. Would you like to start over?",
+                                    "success": False,
+                                    "ui_state": "error",
+                                    "error": str(e)
+                                }
+                                self.dialog_manager.add_message(session_id, "assistant", error_response["response"])
+                                return error_response
+                        else:
+                            response = {
+                                "response": "I couldn't find the previous generation details. Would you like to start a new project?",
+                                "success": False,
+                                "ui_state": "error"
+                            }
+                    elif "new" in message.lower() or "start" in message.lower() or "another" in message.lower():
+                        new_context_id = self.context_tracker.create_context(user_id)
+                        self.dialog_manager.sessions[session_id]["context"] = new_context_id
+                        
+                        result = self.expeta.clarifier.clarify_requirement("I need help with a new software project", True)
+                        conversation_id = result.get("conversation_id")
+                        
+                        self.context_tracker.update_context_data(new_context_id, {
+                            "conversation_id": conversation_id,
+                            "clarification_stage": "introduction",
+                            "current_expectation": {}
+                        })
+                        
+                        response = {
+                            "response": "I'd be happy to help you with a new project! What kind of software would you like to build this time?",
+                            "success": True,
+                            "requires_clarification": True,
+                            "conversation_id": conversation_id,
+                            "ui_state": "clarifying"
+                        }
+                    else:
+                        expectation = context_data.get("expectation", {})
+                        expectation_id = expectation.get("id")
+                        
+                        response = {
+                            "response": "Your project is complete! You can download the files using the buttons below. If you'd like to start a new project, just let me know.",
+                            "success": True,
+                            "ui_state": "completed",
+                            "show_downloads": True,
+                            "expectation_id": expectation_id
+                        }
+                else:
+                    result = self.expeta.clarifier.clarify_requirement(message, True)
+                    conversation_id = result.get("conversation_id")
+                    
+                    self.context_tracker.update_context_data(context_id, {
+                        "conversation_id": conversation_id,
                         "clarification_stage": "awaiting_details",
                         "current_expectation": result.get("current_expectation", {})
                     })
                     
                     response = {
-                        "response": result.get("response", "I need some clarification about your requirement."),
+                        "response": result.get("response", "Let me help you clarify your requirements. Could you tell me more about what you're looking to build?"),
                         "success": True,
                         "requires_clarification": True,
-                        "conversation_id": result.get("conversation_id")
+                        "conversation_id": conversation_id,
+                        "ui_state": "clarifying"
                     }
-                else:
-                    self.expeta.clarifier.sync_to_memory(self.expeta.memory_system)
-                    
-                    if "result" in result:
-                        top_level = result["result"].get("top_level_expectation", {})
-                        sub_expectations = result["result"].get("sub_expectations", [])
-                    else:
-                        top_level = result.get("current_expectation", {})
-                        sub_expectations = []
-                    
-                    context_id = self.dialog_manager.sessions[session_id]["context"]
-                    self.context_tracker.update_context_data(context_id, {
-                        "conversation_id": result.get("conversation_id"),
-                        "clarification_stage": "completed",
-                        "expectation": top_level,
-                        "sub_expectations": sub_expectations
-                    })
-                    
-                    response = {
-                        "response": result.get("response", "I've clarified your requirement."),
-                        "expectation": top_level,
-                        "sub_expectations": sub_expectations,
-                        "success": True
-                    }
-            except (AttributeError, Exception) as e:
-                try:
-                    response = self.dialog_manager.process_message(session_id, message)
-                    
-                    if "response" not in response and "text" in response:
-                        response["response"] = response["text"]
-                    elif "response" not in response:
-                        response["response"] = "I'll help you with that requirement."
-                except Exception:
-                    # Fallback response in case of errors
-                    response = {
-                        "response": "I'll help you with that requirement.",
-                        "success": True
-                    }
-            
-            # Ensure expectation field is present
-            if "expectation" not in response:
-                context_id = self.dialog_manager.sessions[session_id]["context"]
-                context = self.context_tracker.get_context(context_id)
+            except Exception as e:
+                response = {
+                    "response": f"I encountered an unexpected error: {str(e)}. Let's try again. What kind of software project are you looking to build?",
+                    "success": False,
+                    "ui_state": "error",
+                    "error": str(e)
+                }
                 
-                response["expectation"] = context.get("data", {}).get("expectation", {
-                    "id": "exp-12345678",
-                    "name": "Default Expectation",
-                    "description": "A default expectation"
+                self.context_tracker.update_context_data(context_id, {
+                    "clarification_stage": "introduction",
+                    "error": str(e)
                 })
+        
+        self.dialog_manager.add_message(session_id, "assistant", response["response"])
         
         # Add token usage information
         token_usage = self.token_tracker.get_usage_report()
+        memory_usage = self.token_tracker.get_memory_usage() if hasattr(self.token_tracker, "get_memory_usage") else {}
+        available_tokens = self.token_tracker.get_available_tokens() if hasattr(self.token_tracker, "get_available_tokens") else {}
+        
         response["token_usage"] = token_usage
+        response["memory_usage"] = memory_usage
+        response["available_tokens"] = available_tokens
         
         return response
+        
+    def _create_welcome_message(self):
+        """Create welcome message for new conversations
+        
+        Returns:
+            Welcome message response
+        """
+        return {
+            "response": "👋 Welcome to Expeta 2.0! I'm your product manager assistant, and I'll help you clarify your software requirements and turn them into working code.",
+            "success": True
+        }
+        
+    def _create_expectation_summary(self, expectation, sub_expectations=None):
+        """Create a summary of the clarified expectation
+        
+        Args:
+            expectation: Expectation dictionary
+            sub_expectations: Optional list of sub-expectations
+            
+        Returns:
+            Summary text
+        """
+        if not expectation:
+            return "I couldn't create a summary of your requirements."
+            
+        summary = "Here's a summary of your requirements:\n\n"
+        summary += f"**{expectation.get('name', 'Project')}**\n"
+        summary += f"{expectation.get('description', '')}\n\n"
+        
+        if expectation.get("acceptance_criteria"):
+            summary += "**Acceptance Criteria:**\n"
+            for criterion in expectation.get("acceptance_criteria", []):
+                summary += f"- {criterion}\n"
+            summary += "\n"
+            
+        if expectation.get("constraints"):
+            summary += "**Constraints:**\n"
+            for constraint in expectation.get("constraints", []):
+                summary += f"- {constraint}\n"
+            summary += "\n"
+            
+        if sub_expectations:
+            summary += "**Sub-Components:**\n"
+            for i, sub in enumerate(sub_expectations):
+                summary += f"{i+1}. **{sub.get('name', f'Component {i+1}')}**\n"
+                summary += f"   {sub.get('description', '')}\n"
+                
+        return summary
+        
+    def _create_file_summary(self, files):
+        """Create a summary of generated files
+        
+        Args:
+            files: List of file dictionaries
+            
+        Returns:
+            Summary text
+        """
+        if not files:
+            return "No files were generated."
+            
+        summary = f"**Generated {len(files)} files:**\n"
+        
+        for i, file in enumerate(files[:5]):  # Show first 5 files
+            file_name = file.get("name", f"file{i+1}")
+            summary += f"- {file_name}\n"
+            
+        if len(files) > 5:
+            summary += f"- ...and {len(files) - 5} more files\n"
+            
+        return summary
+        
+    def _is_confirmation_positive(self, message):
+        """Check if user message is a positive confirmation
+        
+        Args:
+            message: User message text
+            
+        Returns:
+            True if positive confirmation, False otherwise
+        """
+        positive_indicators = ["yes", "correct", "right", "good", "perfect", "looks good", 
+                              "that's right", "proceed", "continue", "sounds good", "exactly"]
+                              
+        message_lower = message.lower()
+        
+        for indicator in positive_indicators:
+            if indicator in message_lower:
+                return True
+                
+        return False
     
     def continue_conversation(self, message: str, user_id: str, session_id: str) -> Dict[str, Any]:
         """Continue an existing conversation
