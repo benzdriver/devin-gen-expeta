@@ -143,6 +143,14 @@ class TokenTracker:
             "local": {"total": self.total_usage["local"]["total_tokens"]}
         }
         
+    def get_summary(self):
+        """Get a summary of token usage (alias for get_usage_report)
+        
+        Returns:
+            Dictionary with token usage summary
+        """
+        return self.get_usage_report()
+        
     def track_memory_usage(self, memory_type, content):
         """Track token usage for memory storage
         
