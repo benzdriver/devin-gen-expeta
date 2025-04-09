@@ -118,13 +118,9 @@ function CodeGeneration({ sessionId }) {
   };
   
   const handleDownloadAll = () => {
-    if (!generatedCode || !generatedCode.files || generatedCode.files.length === 0) return;
+    if (!generatedCode || !generatedCode.files || generatedCode.files.length === 0 || !expectation) return;
     
-    // 在实际场景中，可能需要使用jszip等库来创建zip文件
-    // 这里仅作简单示例
-    generatedCode.files.forEach(file => {
-      handleDownloadFile(file);
-    });
+    window.open(`${API_BASE_URL}/download/code/${expectation.id}`, '_blank');
   };
   
   useEffect(() => {
@@ -396,4 +392,4 @@ function CodeGeneration({ sessionId }) {
   );
 }
 
-export default CodeGeneration; 
+export default CodeGeneration;  

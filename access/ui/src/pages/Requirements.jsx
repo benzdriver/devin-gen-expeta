@@ -365,7 +365,14 @@ function Requirements({ sessionId }) {
             <h2>期望模型</h2>
             <div className="section-actions">
               {activeStep >= 3 && (
-                <button className="secondary-button">
+                <button 
+                  className="secondary-button"
+                  onClick={() => {
+                    if (expectationData && expectationData.top_level_expectation) {
+                      window.open(`${API_BASE_URL}/download/expectation/${expectationData.top_level_expectation.id}`, '_blank');
+                    }
+                  }}
+                >
                   <span className="material-symbols-rounded">download</span>
                   <span>导出</span>
                 </button>
@@ -445,4 +452,4 @@ function Requirements({ sessionId }) {
   );
 }
 
-export default Requirements; 
+export default Requirements;  

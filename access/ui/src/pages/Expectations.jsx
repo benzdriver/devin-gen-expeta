@@ -116,16 +116,13 @@ function Expectations({ sessionId }) {
   
   const handleCreateExpectation = () => {
     // 导航到需求页面来创建新期望
-    // 对于真实实现，可能需要全局状态管理或路由功能
-    console.log('Create new expectation - redirecting to requirements page');
+    window.location.href = '/requirements';
   };
   
   const handleEditExpectation = async () => {
     if (!selectedExpectation || !sessionId) return;
     
-    // 编辑期望的逻辑会根据具体的需求来实现
-    // 这里可能会显示一个编辑对话框或导航到编辑页面
-    console.log('Edit expectation:', selectedExpectation.id);
+    window.location.href = `/requirements?expectation_id=${selectedExpectation.id}`;
   };
   
   const handleGenerateCode = async () => {
@@ -144,9 +141,7 @@ function Expectations({ sessionId }) {
       });
       
       if (response.ok) {
-        // 导航到代码生成页面
-        // 实际实现中，可能需要全局状态管理或路由功能
-        console.log('Code generation started for:', selectedExpectation.id);
+        window.location.href = `/code-generation?expectation_id=${selectedExpectation.id}`;
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || '代码生成失败');
@@ -329,4 +324,4 @@ function Expectations({ sessionId }) {
   );
 }
 
-export default Expectations; 
+export default Expectations;      
