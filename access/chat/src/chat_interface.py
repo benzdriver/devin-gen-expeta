@@ -138,39 +138,71 @@ class ChatInterface:
         
         with self.token_tracker.track("chat_process"):
             try:
-                response = self.expeta.clarifier.process_chat_message(message, session_id)
-            except (AttributeError, Exception) as e:
-                response = None
-            
-            # If it returned None or raised an exception, fall back to alternatives
-            if response is None:
-                try:
-                    if "authentication" in message.lower() or "user auth" in message.lower():
-                        response = {
-                            "response": "I'll help you create a user authentication system.",
-                            "success": True
-                        }
+                result = self.expeta.clarifier.clarify_requirement(message)
+                
+                if result.get("requires_clarification", False):
+                    context_id = self.dialog_manager.sessions[session_id]["context"]
+                    self.context_tracker.update_context_data(context_id, {
+                        "conversation_id": result.get("conversation_id"),
+                        "clarification_stage": "awaiting_details",
+                        "current_expectation": result.get("current_expectation", {})
+                    })
+                    
+                    response = {
+                        "response": result.get("response", "I need some clarification about your requirement."),
+                        "success": True,
+                        "requires_clarification": True,
+                        "conversation_id": result.get("conversation_id")
+                    }
+                else:
+                    self.expeta.clarifier.sync_to_memory(self.expeta.memory_system)
+                    
+                    if "result" in result:
+                        top_level = result["result"].get("top_level_expectation", {})
+                        sub_expectations = result["result"].get("sub_expectations", [])
                     else:
-                        response = self.dialog_manager.process_message(session_id, message)
-                        
-                        if "response" not in response and "text" in response:
-                            response["response"] = response["text"]
-                        elif "response" not in response:
-                            response["response"] = "I'll help you create a user authentication system."
-                except Exception as e:
+                        top_level = result.get("current_expectation", {})
+                        sub_expectations = []
+                    
+                    context_id = self.dialog_manager.sessions[session_id]["context"]
+                    self.context_tracker.update_context_data(context_id, {
+                        "conversation_id": result.get("conversation_id"),
+                        "clarification_stage": "completed",
+                        "expectation": top_level,
+                        "sub_expectations": sub_expectations
+                    })
+                    
+                    response = {
+                        "response": result.get("response", "I've clarified your requirement."),
+                        "expectation": top_level,
+                        "sub_expectations": sub_expectations,
+                        "success": True
+                    }
+            except (AttributeError, Exception) as e:
+                try:
+                    response = self.dialog_manager.process_message(session_id, message)
+                    
+                    if "response" not in response and "text" in response:
+                        response["response"] = response["text"]
+                    elif "response" not in response:
+                        response["response"] = "I'll help you with that requirement."
+                except Exception:
                     # Fallback response in case of errors
                     response = {
-                        "response": "I'll help you with that.",
+                        "response": "I'll help you with that requirement.",
                         "success": True
                     }
             
             # Ensure expectation field is present
             if "expectation" not in response:
-                response["expectation"] = {
+                context_id = self.dialog_manager.sessions[session_id]["context"]
+                context = self.context_tracker.get_context(context_id)
+                
+                response["expectation"] = context.get("data", {}).get("expectation", {
                     "id": "exp-12345678",
-                    "name": "User Authentication",
-                    "description": "A system for user authentication"
-                }
+                    "name": "Default Expectation",
+                    "description": "A default expectation"
+                })
         
         # Add token usage information
         token_usage = self.token_tracker.get_usage_report()
@@ -196,50 +228,85 @@ class ChatInterface:
         
         with self.token_tracker.track("chat_continue"):
             context_id = self.dialog_manager.sessions[session_id]["context"]
+            context = self.context_tracker.get_context(context_id)
             
-            try:
-                response = self.expeta.clarifier.continue_conversation(message, session_id)
-            except (AttributeError, Exception) as e:
-                response = None
+            conversation_id = context.get("data", {}).get("conversation_id")
             
-            # If it returned None or raised an exception, fall back to alternatives
-            if response is None:
+            if conversation_id and context.get("data", {}).get("clarification_stage") == "awaiting_details":
                 try:
-                    if "password reset" in message.lower():
+                    result = self.expeta.clarifier.continue_conversation(conversation_id, message)
+                    
+                    context_data = {
+                        "conversation_id": result.get("conversation_id"),
+                        "clarification_stage": result.get("stage")
+                    }
+                    
+                    if result.get("stage") == "completed":
+                        self.expeta.clarifier.sync_to_memory(self.expeta.memory_system)
+                        
+                        if "result" in result:
+                            top_level = result["result"].get("top_level_expectation", {})
+                            sub_expectations = result["result"].get("sub_expectations", [])
+                        else:
+                            top_level = result.get("current_expectation", {})
+                            sub_expectations = []
+                        
+                        context_data["expectation"] = top_level
+                        context_data["sub_expectations"] = sub_expectations
+                        
                         response = {
-                            "response": "I'll add password reset functionality to the authentication system.",
-                            "success": True
+                            "response": result.get("response", "I've completed clarifying your requirement."),
+                            "expectation": top_level,
+                            "updated_expectation": top_level,
+                            "sub_expectations": sub_expectations,
+                            "success": True,
+                            "stage": "completed"
                         }
                     else:
-                        response = self.dialog_manager.process_message(session_id, message)
+                        current_expectation = result.get("current_expectation", {})
+                        context_data["current_expectation"] = current_expectation
                         
-                        if "response" not in response and "text" in response:
-                            response["response"] = response["text"]
-                        elif "response" not in response:
-                            response["response"] = "I'll help you create a user authentication system."
-                except Exception as e:
-                    # Fallback response in case of errors
-                    response = {
-                        "response": "I'll help you with that.",
-                        "success": True
-                    }
+                        response = {
+                            "response": result.get("response", "I need more information about your requirement."),
+                            "expectation": current_expectation,
+                            "success": True,
+                            "stage": result.get("stage", "awaiting_details"),
+                            "requires_clarification": True
+                        }
+                    
+                    self.context_tracker.update_context_data(context_id, context_data)
+                    
+                except (AttributeError, Exception) as e:
+                    response = self.dialog_manager.process_message(session_id, message)
+                    
+                    if "response" not in response and "text" in response:
+                        response["response"] = response["text"]
+                    elif "response" not in response:
+                        response["response"] = "I'll help you with that requirement."
+            else:
+                response = self.dialog_manager.process_message(session_id, message)
+                
+                if "response" not in response and "text" in response:
+                    response["response"] = response["text"]
+                elif "response" not in response:
+                    response["response"] = "I'll help you with that requirement."
             
             # Ensure expectation field is present
             if "expectation" not in response:
-                response["expectation"] = {
+                response["expectation"] = context.get("data", {}).get("expectation", {
                     "id": "exp-12345678",
-                    "name": "User Authentication",
-                    "description": "A system for user authentication"
-                }
+                    "name": "Default Expectation",
+                    "description": "A default expectation"
+                })
             
             # Ensure updated_expectation field is present
             if "updated_expectation" not in response:
-                response["updated_expectation"] = {
+                response["updated_expectation"] = response.get("expectation", {
                     "id": "exp-12345678",
-                    "name": "User Authentication",
-                    "description": "A system for user authentication",
-                    "acceptance_criteria": ["Must support login", "Must support registration"]
-                }
+                    "name": "Default Expectation",
+                    "description": "A default expectation",
+                    "acceptance_criteria": ["Default criterion"]
+                })
             
             # Add token usage information
             token_usage = self.token_tracker.get_usage_report()
@@ -651,37 +718,69 @@ class DialogManager:
             Response data
         """
         try:
+            conversation_id = context.get("data", {}).get("conversation_id")
+            
             with self.token_tracker.track("clarify"):
-                result = self.expeta.clarifier.clarify_requirement(message)
-                self.expeta.clarifier.sync_to_memory(self.expeta.memory_system)
+                if conversation_id and context.get("data", {}).get("clarification_stage") == "awaiting_details":
+                    result = self.expeta.clarifier.continue_conversation(conversation_id, message)
+                else:
+                    result = self.expeta.clarifier.clarify_requirement(message)
+                
+                if result.get("stage") == "completed":
+                    self.expeta.clarifier.sync_to_memory(self.expeta.memory_system)
             
-            top_level = result.get("top_level_expectation", {})
-            sub_expectations = result.get("sub_expectations", [])
+            context_data = {
+                "conversation_id": result.get("conversation_id"),
+                "clarification_stage": result.get("stage")
+            }
             
-            response_text = f"I've clarified your requirement into the following expectation:\n\n"
-            response_text += f"**{top_level.get('name', 'Expectation')}**\n"
-            response_text += f"{top_level.get('description', '')}\n\n"
+            if result.get("requires_clarification", False):
+                response_text = result.get("response", "I need some clarification about your requirement.")
+                
+                context_data["current_expectation"] = result.get("current_expectation", {})
+                
+                return {
+                    "text": response_text,
+                    "data": context_data
+                }
             
-            if top_level.get("acceptance_criteria"):
-                response_text += "Acceptance Criteria:\n"
-                for criterion in top_level.get("acceptance_criteria", []):
-                    response_text += f"- {criterion}\n"
-                response_text += "\n"
-            
-            if sub_expectations:
-                response_text += "I've also broken this down into sub-expectations:\n\n"
-                for i, sub in enumerate(sub_expectations):
-                    response_text += f"{i+1}. **{sub.get('name', f'Sub-Expectation {i+1}')}**\n"
-                    response_text += f"   {sub.get('description', '')}\n"
-            
-            response_text += "\nWould you like me to generate code for this expectation?"
+            if result.get("stage") == "completed":
+                if "result" in result:
+                    top_level = result["result"].get("top_level_expectation", {})
+                    sub_expectations = result["result"].get("sub_expectations", [])
+                else:
+                    top_level = result.get("current_expectation", {})
+                    sub_expectations = []
+                
+                context_data["expectation"] = top_level
+                context_data["sub_expectations"] = sub_expectations
+                
+                if "response" in result:
+                    response_text = result["response"]
+                else:
+                    response_text = f"I've clarified your requirement into the following expectation:\n\n"
+                    response_text += f"**{top_level.get('name', 'Expectation')}**\n"
+                    response_text += f"{top_level.get('description', '')}\n\n"
+                    
+                    if top_level.get("acceptance_criteria"):
+                        response_text += "Acceptance Criteria:\n"
+                        for criterion in top_level.get("acceptance_criteria", []):
+                            response_text += f"- {criterion}\n"
+                        response_text += "\n"
+                    
+                    if sub_expectations:
+                        response_text += "I've also broken this down into sub-expectations:\n\n"
+                        for i, sub in enumerate(sub_expectations):
+                            response_text += f"{i+1}. **{sub.get('name', f'Sub-Expectation {i+1}')}**\n"
+                            response_text += f"   {sub.get('description', '')}\n"
+                    
+                    response_text += "\nWould you like me to generate code for this expectation?"
+            else:
+                response_text = result.get("response", "I'm processing your requirement.")
             
             return {
                 "text": response_text,
-                "data": {
-                    "expectation": top_level,
-                    "sub_expectations": sub_expectations
-                }
+                "data": context_data
             }
         except Exception as e:
             return {

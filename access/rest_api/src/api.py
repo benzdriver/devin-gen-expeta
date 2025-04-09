@@ -10,16 +10,18 @@ from typing import Dict, Any, Optional, List
 
 from fastapi import FastAPI, HTTPException, Body, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-
-from utils.token_tracker import TokenTracker
+import io
+import zipfile
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 from orchestrator.orchestrator import Expeta
+from utils.token_tracker import TokenTracker
 from utils.env_loader import load_dotenv
+from memory.storage.file_storage import FileStorage
 
 load_dotenv()
 
@@ -59,6 +61,10 @@ config = {
     }
 }
 
+config["memory_system"] = {
+    "storage_type": "file",
+    "storage_path": FileStorage()._get_default_base_dir()
+}
 expeta = Expeta(config=config)
 
 class RequirementRequest(BaseModel):
@@ -176,7 +182,50 @@ async def get_expectation(expectation_id: str):
         result = expeta.memory_system.get_expectation(expectation_id)
         if not result:
             raise HTTPException(status_code=404, detail="Expectation not found")
+        
+        if isinstance(result, list) and len(result) > 0:
+            return result[0]
+        
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+@app.get("/download/expectation/{expectation_id}")
+async def download_expectation(expectation_id: str, format: str = "yaml"):
+    """Download expectation as YAML or JSON
+    
+    Args:
+        expectation_id: ID of the expectation
+        format: Format to download (yaml, json)
+    """
+    try:
+        expectation = expeta.memory_system.get_expectation(expectation_id)
+        if not expectation:
+            raise HTTPException(status_code=404, detail="Expectation not found")
+        
+        if isinstance(expectation, list) and len(expectation) > 0:
+            expectation = expectation[0]
+        
+        if format.lower() == "json":
+            import json
+            content = json.dumps(expectation, indent=2)
+            content_type = "application/json"
+            filename = f"expectation_{expectation_id}.json"
+        else:  # Default to YAML
+            import yaml
+            content = yaml.dump(expectation, default_flow_style=False)
+            content_type = "text/yaml"
+            filename = f"expectation_{expectation_id}.yaml"
+        
+        buffer = io.BytesIO(content.encode('utf-8'))
+        
+        return StreamingResponse(
+            buffer,
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -187,7 +236,104 @@ async def get_generation(expectation_id: str):
         result = expeta.memory_system.get_code_for_expectation(expectation_id)
         if not result:
             raise HTTPException(status_code=404, detail="Generation not found")
+        
+        if isinstance(result, list) and len(result) > 0:
+            return result[0]
+            
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/download/code/{expectation_id}")
+async def download_code(expectation_id: str, format: str = "zip"):
+    """Download generated code for an expectation
+    
+    Args:
+        expectation_id: ID of the expectation
+        format: Format to download (zip, tar, individual)
+    """
+    try:
+        generation = expeta.memory_system.get_code_for_expectation(expectation_id)
+        if not generation:
+            raise HTTPException(status_code=404, detail="Generation not found")
+        
+        if isinstance(generation, list) and len(generation) > 0:
+            generation = generation[0]
+        
+        files = generation.get("files", [])
+        if not files:
+            raise HTTPException(status_code=404, detail="No files found in generation")
+        
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for file in files:
+                file_name = file.get("name", "unknown.txt")
+                file_content = file.get("content", "")
+                zip_file.writestr(file_name, file_content)
+        
+        zip_buffer.seek(0)
+        
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename=code_{expectation_id}.zip"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/download/file/{expectation_id}/{file_name}")
+async def download_single_file(expectation_id: str, file_name: str):
+    """Download a single file from generated code
+    
+    Args:
+        expectation_id: ID of the expectation
+        file_name: Name of the file to download
+    """
+    try:
+        generation = expeta.memory_system.get_code_for_expectation(expectation_id)
+        if not generation:
+            raise HTTPException(status_code=404, detail="Generation not found")
+        
+        if isinstance(generation, list) and len(generation) > 0:
+            generation = generation[0]
+        
+        files = generation.get("files", [])
+        if not files:
+            raise HTTPException(status_code=404, detail="No files found in generation")
+        
+        file_data = None
+        for file in files:
+            if file.get("name") == file_name:
+                file_data = file
+                break
+        
+        if not file_data:
+            raise HTTPException(status_code=404, detail=f"File {file_name} not found")
+        
+        content = file_data.get("content", "")
+        buffer = io.BytesIO(content.encode('utf-8'))
+        
+        content_type = "text/plain"
+        if file_name.endswith(".py"):
+            content_type = "text/x-python"
+        elif file_name.endswith(".js"):
+            content_type = "application/javascript"
+        elif file_name.endswith(".html"):
+            content_type = "text/html"
+        elif file_name.endswith(".css"):
+            content_type = "text/css"
+        elif file_name.endswith(".json"):
+            content_type = "application/json"
+        
+        return StreamingResponse(
+            buffer,
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename={file_name}"}
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

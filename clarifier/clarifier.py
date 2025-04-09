@@ -2,7 +2,8 @@
 Clarifier Module for Expeta 2.0
 
 This module converts natural language requirements into structured semantic expectations
-and decomposes high-level expectations into sub-expectations.
+and decomposes high-level expectations into sub-expectations. It supports multi-round
+dialogue for interactive requirement clarification.
 """
 
 class Clarifier:
@@ -16,28 +17,76 @@ class Clarifier:
         """
         self.llm_router = llm_router or self._create_default_llm_router()
         self._processed_expectations = []
+        self._active_conversations = {}  # Store active conversations by conversation_id
 
-    def clarify_requirement(self, requirement_text):
+    def clarify_requirement(self, requirement_text, conversation_id=None):
         """Clarify fuzzy requirements into structured expectations
         
         Args:
             requirement_text: Natural language requirement text
+            conversation_id: Optional conversation ID for multi-round dialogue
             
         Returns:
-            Dictionary with top-level expectation, sub-expectations, and process metadata
+            Dictionary with clarification results and conversation state
         """
+        if not conversation_id:
+            import uuid
+            conversation_id = f"conv-{uuid.uuid4().hex[:8]}"
+            
         top_level_expectation = self._extract_top_level_expectation(requirement_text)
+        
+        uncertainty_points = self._detect_uncertainty(top_level_expectation)
+        
+        conversation = {
+            "id": conversation_id,
+            "current_expectation": top_level_expectation,
+            "previous_messages": [
+                {"role": "user", "content": requirement_text}
+            ],
+            "uncertainty_points": uncertainty_points,
+            "stage": "initial"
+        }
+        
+        if uncertainty_points:
+            response = self._create_follow_up_questions(uncertainty_points)
+            conversation["stage"] = "awaiting_details"
+            conversation["previous_messages"].append({"role": "system", "content": response})
+            
+            self._active_conversations[conversation_id] = conversation
+            
+            return {
+                "conversation_id": conversation_id,
+                "response": response,
+                "current_expectation": top_level_expectation,
+                "stage": "awaiting_details",
+                "requires_clarification": True
+            }
+        
         sub_expectations = self._decompose_to_sub_expectations(top_level_expectation)
-
+        
         result = {
             "top_level_expectation": top_level_expectation,
             "sub_expectations": sub_expectations,
             "process_metadata": self._collect_process_metadata()
         }
-
+        
         self._processed_expectations.append(result)
-
-        return result
+        
+        response = self._create_completion_response(top_level_expectation, sub_expectations)
+        conversation["stage"] = "completed"
+        conversation["result"] = result
+        conversation["previous_messages"].append({"role": "system", "content": response})
+        
+        self._active_conversations[conversation_id] = conversation
+        
+        return {
+            "conversation_id": conversation_id,
+            "response": response,
+            "current_expectation": top_level_expectation,
+            "stage": "completed",
+            "requires_clarification": False,
+            "result": result
+        }
 
     def sync_to_memory(self, memory_system):
         """Sync processed results to memory system (delayed call)
@@ -55,6 +104,70 @@ class Clarifier:
         self._processed_expectations = []
 
         return {"synced_count": synced_count}
+        
+    def continue_conversation(self, conversation_id, user_message, context=None):
+        """Continue an existing clarification conversation
+        
+        Args:
+            conversation_id: Unique identifier for the conversation
+            user_message: User's follow-up message
+            context: Optional additional context
+            
+        Returns:
+            Dictionary with updated clarification and response
+        """
+        conversation = self._active_conversations.get(conversation_id, {})
+        
+        if not conversation:
+            return {
+                "error": "No active conversation found with this ID",
+                "suggestion": "Start a new clarification with clarify_requirement"
+            }
+            
+        current_expectation = conversation.get("current_expectation", {})
+        clarification_stage = conversation.get("stage", "initial")
+        uncertainty_points = conversation.get("uncertainty_points", [])
+        
+        if clarification_stage == "awaiting_details":
+            updated_expectation = self._incorporate_clarification(current_expectation, user_message, uncertainty_points)
+            new_uncertainty_points = self._detect_uncertainty(updated_expectation)
+            
+            conversation["current_expectation"] = updated_expectation
+            conversation["previous_messages"].append({"role": "user", "content": user_message})
+            
+            if new_uncertainty_points:
+                response = self._create_follow_up_questions(new_uncertainty_points)
+                conversation["uncertainty_points"] = new_uncertainty_points
+                conversation["stage"] = "awaiting_details"
+            else:
+                sub_expectations = self._decompose_to_sub_expectations(updated_expectation)
+                
+                result = {
+                    "top_level_expectation": updated_expectation,
+                    "sub_expectations": sub_expectations,
+                    "process_metadata": self._collect_process_metadata()
+                }
+                
+                self._processed_expectations.append(result)
+                
+                response = self._create_completion_response(updated_expectation, sub_expectations)
+                conversation["stage"] = "completed"
+                conversation["result"] = result
+        else:
+            response = self._create_general_response(user_message, current_expectation)
+            conversation["previous_messages"].append({"role": "user", "content": user_message})
+        
+        self._active_conversations[conversation_id] = conversation
+        
+        conversation["previous_messages"].append({"role": "system", "content": response})
+        
+        return {
+            "conversation_id": conversation_id,
+            "response": response,
+            "current_expectation": conversation["current_expectation"],
+            "stage": conversation["stage"],
+            "result": conversation.get("result")
+        }
         
     def _create_default_llm_router(self):
         """Create default LLM router
@@ -362,3 +475,317 @@ class Clarifier:
         """
         import uuid
         return f"exp-{uuid.uuid4().hex[:8]}"
+        
+    def _detect_uncertainty(self, expectation):
+        """Detect uncertainty points in an expectation
+        
+        Args:
+            expectation: Expectation dictionary
+            
+        Returns:
+            List of uncertainty points
+        """
+        uncertainty_points = []
+        
+        if not expectation.get("name") or expectation.get("name") == "Default Expectation":
+            uncertainty_points.append({
+                "field": "name",
+                "issue": "missing_or_default",
+                "message": "The expectation name is missing or uses a default value."
+            })
+            
+        if not expectation.get("description") or len(expectation.get("description", "")) < 10:
+            uncertainty_points.append({
+                "field": "description",
+                "issue": "missing_or_short",
+                "message": "The expectation description is missing or too short."
+            })
+            
+        if not expectation.get("acceptance_criteria") or len(expectation.get("acceptance_criteria", [])) < 1:
+            uncertainty_points.append({
+                "field": "acceptance_criteria",
+                "issue": "missing_or_empty",
+                "message": "No acceptance criteria specified for this expectation."
+            })
+            
+        vague_terms = ["etc", "and so on", "and more", "various", "several", "some", "many"]
+        description = expectation.get("description", "").lower()
+        
+        for term in vague_terms:
+            if term in description:
+                uncertainty_points.append({
+                    "field": "description",
+                    "issue": "vague_term",
+                    "message": f"The description contains the vague term '{term}'.",
+                    "term": term
+                })
+                
+        if expectation.get("description"):
+            semantic_uncertainty = self._detect_semantic_uncertainty(expectation)
+            uncertainty_points.extend(semantic_uncertainty)
+            
+        return uncertainty_points
+        
+    def _detect_semantic_uncertainty(self, expectation):
+        """Use LLM to detect semantic uncertainty in expectation
+        
+        Args:
+            expectation: Expectation dictionary
+            
+        Returns:
+            List of semantic uncertainty points
+        """
+        prompt = f"""
+        You are an expert requirements analyst. Analyze the following software expectation for ambiguity, 
+        vagueness, or missing information that would make it difficult to implement.
+        
+        Expectation:
+        Name: {expectation.get('name', 'No name provided')}
+        Description: {expectation.get('description', 'No description provided')}
+        
+        Acceptance Criteria:
+        {self._format_list_for_prompt(expectation.get('acceptance_criteria', []))}
+        
+        Constraints:
+        {self._format_list_for_prompt(expectation.get('constraints', []))}
+        
+        Identify up to 3 specific points of uncertainty that need clarification. For each point:
+        1. Identify the specific field (name, description, acceptance_criteria, constraints)
+        2. Describe the issue (ambiguity, vagueness, contradiction, etc.)
+        3. Explain why it's problematic
+        4. Suggest a specific question to ask for clarification
+        
+        Format your response as a JSON array:
+        ```json
+        [
+          {
+            "field": "field_name",
+            "issue": "issue_type",
+            "message": "Description of the issue",
+            "question": "Specific question to ask for clarification"
+          }
+        ]
+        ```
+        
+        If there are no significant uncertainties, return an empty array: []
+        """
+        
+        response = self.llm_router.generate(prompt)
+        content = response.get("content", "")
+        
+        import re
+        import json
+        
+        json_match = re.search(r"```json\s+(.*?)\s+```", content, re.DOTALL)
+        
+        if json_match:
+            json_content = json_match.group(1)
+        else:
+            json_content = content
+            
+        try:
+            uncertainty_points = json.loads(json_content)
+            if not isinstance(uncertainty_points, list):
+                uncertainty_points = []
+        except Exception:
+            uncertainty_points = []
+            
+        return uncertainty_points
+        
+    def _format_list_for_prompt(self, items):
+        """Format a list for inclusion in a prompt
+        
+        Args:
+            items: List of items
+            
+        Returns:
+            Formatted string
+        """
+        if not items:
+            return "None provided"
+            
+        return "\n".join([f"- {item}" for item in items])
+        
+    def _create_follow_up_questions(self, uncertainty_points):
+        """Create follow-up questions based on uncertainty points
+        
+        Args:
+            uncertainty_points: List of uncertainty points
+            
+        Returns:
+            Response text with follow-up questions
+        """
+        if not uncertainty_points:
+            return "I have all the information I need. Let me finalize the expectation."
+            
+        response = "I need some clarification to better understand your requirement:\n\n"
+        
+        for i, point in enumerate(uncertainty_points):
+            question = point.get("question")
+            if not question:
+                field = point.get("field", "requirement")
+                issue = point.get("issue", "unclear")
+                
+                if field == "name":
+                    question = "Could you provide a more specific name for this requirement?"
+                elif field == "description":
+                    if issue == "vague_term":
+                        term = point.get("term", "")
+                        question = f"You mentioned '{term}' in the description. Could you be more specific about what this includes?"
+                    else:
+                        question = "Could you provide a more detailed description of what you need?"
+                elif field == "acceptance_criteria":
+                    question = "What specific criteria would indicate that this requirement has been successfully implemented?"
+                elif field == "constraints":
+                    question = "Are there any constraints or limitations that should be considered for this requirement?"
+                else:
+                    question = "Could you provide more details about this requirement?"
+                    
+            response += f"{i+1}. {question}\n"
+            
+        return response
+        
+    def _incorporate_clarification(self, expectation, user_message, uncertainty_points):
+        """Incorporate user clarification into expectation
+        
+        Args:
+            expectation: Current expectation dictionary
+            user_message: User's clarification message
+            uncertainty_points: List of uncertainty points being addressed
+            
+        Returns:
+            Updated expectation dictionary
+        """
+        prompt = f"""
+        You are an expert requirements analyst. You previously identified some uncertainties in a software expectation.
+        The user has provided clarification. Update the expectation based on this clarification.
+        
+        Current Expectation:
+        Name: {expectation.get('name', 'No name provided')}
+        Description: {expectation.get('description', 'No description provided')}
+        
+        Acceptance Criteria:
+        {self._format_list_for_prompt(expectation.get('acceptance_criteria', []))}
+        
+        Constraints:
+        {self._format_list_for_prompt(expectation.get('constraints', []))}
+        
+        Uncertainty Points:
+        {self._format_uncertainty_points(uncertainty_points)}
+        
+        User Clarification:
+        {user_message}
+        
+        Provide an updated version of the expectation that incorporates the user's clarification.
+        Format your response as YAML:
+        
+        ```yaml
+        name: Updated name
+        description: Updated description
+        acceptance_criteria:
+          - Updated criterion 1
+          - Updated criterion 2
+        constraints:
+          - Updated constraint 1
+          - Updated constraint 2
+        ```
+        """
+        
+        response = self.llm_router.generate(prompt)
+        updated_expectation = self._parse_expectation_from_response(response)
+        
+        updated_expectation["id"] = expectation.get("id", self._generate_expectation_id())
+        updated_expectation["level"] = expectation.get("level", "top")
+        updated_expectation["source_text"] = expectation.get("source_text", "")
+        
+        return updated_expectation
+        
+    def _format_uncertainty_points(self, uncertainty_points):
+        """Format uncertainty points for inclusion in a prompt
+        
+        Args:
+            uncertainty_points: List of uncertainty points
+            
+        Returns:
+            Formatted string
+        """
+        if not uncertainty_points:
+            return "None"
+            
+        formatted = ""
+        for i, point in enumerate(uncertainty_points):
+            field = point.get("field", "unknown")
+            issue = point.get("issue", "unclear")
+            message = point.get("message", "No details provided")
+            question = point.get("question", "")
+            
+            formatted += f"{i+1}. Field: {field}, Issue: {issue}\n   {message}\n"
+            if question:
+                formatted += f"   Question: {question}\n"
+                
+        return formatted
+        
+    def _create_completion_response(self, expectation, sub_expectations):
+        """Create response for completed clarification
+        
+        Args:
+            expectation: Finalized top-level expectation
+            sub_expectations: List of sub-expectations
+            
+        Returns:
+            Response text
+        """
+        response = f"I've finalized your requirement into the following expectation:\n\n"
+        response += f"**{expectation.get('name', 'Expectation')}**\n"
+        response += f"{expectation.get('description', '')}\n\n"
+        
+        if expectation.get("acceptance_criteria"):
+            response += "Acceptance Criteria:\n"
+            for criterion in expectation.get("acceptance_criteria", []):
+                response += f"- {criterion}\n"
+            response += "\n"
+            
+        if expectation.get("constraints"):
+            response += "Constraints:\n"
+            for constraint in expectation.get("constraints", []):
+                response += f"- {constraint}\n"
+            response += "\n"
+            
+        if sub_expectations:
+            response += "I've also broken this down into sub-expectations:\n\n"
+            for i, sub in enumerate(sub_expectations):
+                response += f"{i+1}. **{sub.get('name', f'Sub-Expectation {i+1}')}**\n"
+                response += f"   {sub.get('description', '')}\n"
+                
+        response += "\nWould you like me to generate code for this expectation?"
+        
+        return response
+        
+    def _create_general_response(self, user_message, expectation):
+        """Create general response for messages in completed conversations
+        
+        Args:
+            user_message: User's message
+            expectation: Current expectation
+            
+        Returns:
+            Response text
+        """
+        prompt = f"""
+        You are an AI assistant helping with software requirements. The user has already completed
+        the clarification process for the following expectation, but has sent a new message.
+        
+        Expectation:
+        Name: {expectation.get('name', 'No name provided')}
+        Description: {expectation.get('description', 'No description provided')}
+        
+        User's new message:
+        {user_message}
+        
+        Respond helpfully to the user's message in the context of this expectation.
+        If they're asking for changes to the expectation, explain that they can start
+        a new clarification process or provide specific updates they want to make.
+        """
+        
+        response = self.llm_router.generate(prompt)
+        return response.get("content", "I understand. What would you like to do next with this expectation?")
