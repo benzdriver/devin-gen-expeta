@@ -1,15 +1,16 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 function Sidebar({ activePage, setActivePage, userData }) {
   const navLinks = [
-    { id: 'dashboard', icon: 'dashboard', label: '仪表盘' },
-    { id: 'requirements', icon: 'description', label: '需求管理' },
-    { id: 'expectations', icon: 'format_list_bulleted', label: '期望管理' },
-    { id: 'code-generation', icon: 'code', label: '代码生成' },
-    { id: 'validation', icon: 'verified', label: '验证结果' },
-    { id: 'memory', icon: 'database', label: '记忆系统' },
-    { id: 'semantic-mediator', icon: 'swap_horiz', label: '语义中介层' },
-    { id: 'settings', icon: 'settings', label: '系统设置' },
+    { id: 'dashboard', icon: 'dashboard', label: '仪表盘', path: '/' },
+    { id: 'requirements', icon: 'description', label: '需求管理', path: '/requirements' },
+    { id: 'expectations', icon: 'format_list_bulleted', label: '期望管理', path: '/expectations' },
+    { id: 'code-generation', icon: 'code', label: '代码生成', path: '/code-generation' },
+    { id: 'validation', icon: 'verified', label: '验证结果', path: '/validation' },
+    { id: 'memory', icon: 'database', label: '记忆系统', path: '/memory' },
+    { id: 'semantic-mediator', icon: 'swap_horiz', label: '语义中介层', path: '/semantic-mediator' },
+    { id: 'settings', icon: 'settings', label: '系统设置', path: '/settings' },
   ];
 
   return (
@@ -21,13 +22,12 @@ function Sidebar({ activePage, setActivePage, userData }) {
       <ul className="nav-links">
         {navLinks.map(link => (
           <li key={link.id} className={`nav-item ${activePage === link.id ? 'active' : ''}`}>
-            <a href={`#${link.id}`} onClick={(e) => {
-              e.preventDefault();
+            <Link to={link.path} onClick={(e) => {
               setActivePage(link.id);
             }}>
               <span className="material-symbols-rounded">{link.icon}</span>
               <span>{link.label}</span>
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
@@ -44,4 +44,4 @@ function Sidebar({ activePage, setActivePage, userData }) {
   );
 }
 
-export default Sidebar; 
+export default Sidebar;  

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
@@ -10,15 +11,24 @@ import Memory from './pages/Memory';
 import Settings from './pages/Settings';
 import SemanticMediator from './pages/SemanticMediator';
 
-const API_BASE_URL = 'http://localhost:8000';
+export const API_BASE_URL = 'http://localhost:8000';
 
 function App() {
-  const [activePage, setActivePage] = useState('dashboard');
+  const location = useLocation();
+  const navigate = useNavigate();
   const [sessionId, setSessionId] = useState(null);
   const [userData, setUserData] = useState({
     name: '张明',
     role: '系统管理员'
   });
+
+  const getActivePageFromPath = () => {
+    const path = location.pathname.replace('/', '');
+    if (path === '') return 'dashboard';
+    return path;
+  };
+
+  const activePage = getActivePageFromPath();
 
   useEffect(() => {
     const initApp = async () => {
@@ -49,34 +59,15 @@ function App() {
     initApp();
   }, []);
 
-  const renderActivePage = () => {
-    switch (activePage) {
-      case 'dashboard':
-        return <Dashboard sessionId={sessionId} />;
-      case 'requirements':
-        return <Requirements sessionId={sessionId} />;
-      case 'expectations':
-        return <Expectations sessionId={sessionId} />;
-      case 'code-generation':
-        return <CodeGeneration sessionId={sessionId} />;
-      case 'validation':
-        return <Validation sessionId={sessionId} />;
-      case 'memory':
-        return <Memory sessionId={sessionId} />;
-      case 'semantic-mediator':
-        return <SemanticMediator sessionId={sessionId} />;
-      case 'settings':
-        return <Settings userData={userData} setUserData={setUserData} />;
-      default:
-        return <Dashboard sessionId={sessionId} />;
-    }
+  const handlePageChange = (pageId) => {
+    navigate(`/${pageId === 'dashboard' ? '' : pageId}`);
   };
 
   return (
     <div className="app-container">
       <Sidebar 
         activePage={activePage} 
-        setActivePage={setActivePage} 
+        setActivePage={handlePageChange} 
         userData={userData}
       />
       <main className="main-content">
@@ -85,7 +76,16 @@ function App() {
           sessionId={sessionId}
         />
         <div id={activePage} className="content-area page">
-          {renderActivePage()}
+          <Routes>
+            <Route path="/" element={<Dashboard sessionId={sessionId} />} />
+            <Route path="/requirements" element={<Requirements sessionId={sessionId} />} />
+            <Route path="/expectations" element={<Expectations sessionId={sessionId} />} />
+            <Route path="/code-generation" element={<CodeGeneration sessionId={sessionId} />} />
+            <Route path="/validation" element={<Validation sessionId={sessionId} />} />
+            <Route path="/memory" element={<Memory sessionId={sessionId} />} />
+            <Route path="/semantic-mediator" element={<SemanticMediator sessionId={sessionId} />} />
+            <Route path="/settings" element={<Settings userData={userData} setUserData={setUserData} />} />
+          </Routes>
         </div>
       </main>
     </div>
@@ -106,4 +106,4 @@ function getPageTitle(page) {
   }
 }
 
-export default App; 
+export default App;  
