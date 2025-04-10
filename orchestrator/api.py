@@ -19,6 +19,8 @@ except ImportError:
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import uuid
+from datetime import datetime
 
 from .orchestrator import Expeta
 
@@ -85,6 +87,16 @@ class ProcessResponse(BaseModel):
     generation: Dict[str, Any]
     validation: Dict[str, Any]
     success: bool
+    
+class ChatSessionRequest(BaseModel):
+    user_message: str
+    session_id: Optional[str] = None
+    
+class ChatSessionResponse(BaseModel):
+    session_id: str
+    messages: List[Dict[str, Any]]
+    status: str
+    token_usage: Optional[Dict[str, Any]] = None
 
 @app.get("/")
 async def root():
@@ -234,6 +246,108 @@ async def get_validation(expectation_id: str):
         if not result:
             raise HTTPException(status_code=404, detail="Validation not found")
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat/session")
+async def create_chat_session(request: ChatSessionRequest):
+    """Create or continue a chat session"""
+    try:
+        session_id = request.session_id or f"session_{uuid.uuid4().hex[:8]}"
+        
+        if not request.session_id:
+            try:
+                result = expeta.clarifier.clarify_requirement(request.user_message, session_id)
+            except Exception as e:
+                import traceback
+                print(f"Error in clarify_requirement: {str(e)}")
+                print(traceback.format_exc())
+                result = {
+                    "response": "Sorry, there was a problem processing your request. Please try again later or provide more detailed information.",
+                    "requires_clarification": True
+                }
+            
+            messages = [
+                {
+                    "role": "assistant",
+                    "content": "Welcome to Expeta 2.0! I'm your requirements analysis assistant. Please tell me about the system or functionality you want to build, and I'll help clarify your requirements and generate an expectation model.",
+                    "timestamp": datetime.now().isoformat()
+                },
+                {
+                    "role": "user",
+                    "content": request.user_message,
+                    "timestamp": datetime.now().isoformat()
+                },
+                {
+                    "role": "assistant",
+                    "content": result.get("response", "I need more information to understand your requirements. Please provide more details."),
+                    "timestamp": datetime.now().isoformat()
+                }
+            ]
+            
+            status = "clarifying" if result.get("requires_clarification", True) else "completed"
+            
+            return {
+                "session_id": session_id,
+                "messages": messages,
+                "status": status,
+                "expectation": result.get("result"),
+                "response": result.get("response"),
+                "token_usage": {"total": 1000000, "used": 5000, "available": 995000}
+            }
+        else:
+            try:
+                result = expeta.clarifier.continue_conversation(session_id, request.user_message)
+                print(f"Clarifier response: {result}")  # Debug log
+            except Exception as e:
+                import traceback
+                print(f"Error in continue_conversation: {str(e)}")
+                print(traceback.format_exc())
+                result = {
+                    "response": "Sorry, there was a problem processing your reply. Please try again later or provide more detailed information.",
+                    "stage": "clarifying"
+                }
+            
+            response = result.get("response")
+            if not response and "result" in result and isinstance(result["result"], dict):
+                response = "I have understood your requirements and updated the expectation model."
+            
+            messages = [
+                {
+                    "role": "user",
+                    "content": request.user_message,
+                    "timestamp": datetime.now().isoformat()
+                },
+                {
+                    "role": "assistant",
+                    "content": response or "I have understood your requirements and updated the expectation model.",
+                    "timestamp": datetime.now().isoformat()
+                }
+            ]
+            
+            return {
+                "session_id": session_id,
+                "messages": messages,
+                "status": result.get("stage", "clarifying"),
+                "expectation": result.get("result"),
+                "response": response or "I have understood your requirements and updated the expectation model.",
+                "token_usage": {"total": 1000000, "used": 5000, "available": 995000}
+            }
+    except Exception as e:
+        import traceback
+        print(f"Error in chat session: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/token/usage")
+async def get_token_usage():
+    """Get token usage information"""
+    try:
+        return {
+            "total": 1000000,
+            "used": 5000,
+            "available": 995000
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

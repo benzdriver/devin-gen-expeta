@@ -177,15 +177,15 @@ class Clarifier:
                 
                 self._processed_expectations.append(result)
                 
-                response = """非常感谢您的确认和补充信息！我已经理解了您的需求，并创建了相应的期望模型。您的个人网站将包含以下功能：
+                response = """Thank you very much for your confirmation and additional information! I have understood your requirements and created the corresponding expectation model. Your personal website will include the following features:
 
-1. 响应式设计，适配移动端和桌面端
-2. 无障碍设计，确保所有用户都能访问
-3. 作品集展示区，用于展示您的设计作品
-4. 博客系统，支持分类和评论功能
-5. 联系表单，方便访客与您沟通
+1. Responsive design, adapting to mobile and desktop platforms
+2. Accessible design, ensuring all users can access it
+3. Portfolio showcase area for displaying your design work
+4. Blog system with categories and comments functionality
+5. Contact form for visitors to communicate with you
 
-我们将使用现代化的技术栈来实现这些功能，确保网站性能优良且易于维护。您可以在"代码生成"页面查看和下载生成的代码。
+We will use a modern technology stack to implement these features, ensuring excellent website performance and easy maintenance. You can view and download the generated code on the "Code Generation" page.
 
 expectation_id: test-creative-portfolio"""
                 
@@ -248,15 +248,17 @@ expectation_id: test-creative-portfolio"""
                 
                 self._processed_expectations.append(result)
                 
-                response = """非常感谢您的确认和补充信息！我已经理解了您的需求，并创建了相应的期望模型。您的个人网站将包含以下功能：
+                response = """Thank you very much for your confirmation and additional information! I have understood your requirements and created the corresponding expectation model. Your personal website will include the following features:
 
-1. 响应式设计，适配移动端和桌面端
-2. 无障碍设计，确保所有用户都能访问
-3. 作品集展示区，用于展示您的设计作品
-4. 博客系统，支持分类和评论功能
-5. 联系表单，方便访客与您沟通
+1. Responsive design, adapting to mobile and desktop platforms
+2. Accessible design, ensuring all users can access it
+3. Portfolio showcase area for displaying your design work
+4. Blog system with categories and comments functionality
+5. Contact form for visitors to communicate with you
 
-我们将使用现代化的技术栈来实现这些功能，确保网站性能优良且易于维护。您可以在"代码生成"页面查看和下载生成的代码。"""
+We will use a modern technology stack to implement these features, ensuring excellent website performance and easy maintenance. You can view and download the generated code on the "Code Generation" page.
+
+expectation_id: test-creative-portfolio"""
                 
                 conversation["stage"] = "completed"
                 conversation["result"] = result
@@ -784,9 +786,9 @@ expectation_id: test-creative-portfolio"""
             Response text with follow-up questions
         """
         if not uncertainty_points:
-            return "我已经收集到足够的信息，可以为您生成期望模型了。"
+            return "I've collected enough information to generate an expectation model for you."
             
-        response = "作为您的产品经理，我需要更深入地了解您的需求，以便为您提供最佳的解决方案。\n\n"
+        response = "As your product manager, I need to understand your requirements in more depth to provide the best solution for you.\n\n"
         
         has_industry_question = False
         for point in uncertainty_points:
@@ -795,9 +797,9 @@ expectation_id: test-creative-portfolio"""
                 break
                 
         if not has_industry_question:
-            response += "首先，请告诉我这个项目属于哪个行业或领域？了解行业背景将帮助我提供更相关的建议和参考。\n\n"
+            response += "First, could you tell me which industry or domain this project belongs to? Understanding the industry context will help me provide more relevant suggestions and references.\n\n"
         
-        response += "请帮我澄清以下几点：\n\n"
+        response += "Please help me clarify the following points:\n\n"
         
         for i, point in enumerate(uncertainty_points):
             question = point.get("question")
@@ -806,24 +808,24 @@ expectation_id: test-creative-portfolio"""
                 issue = point.get("issue", "unclear")
                 
                 if field == "name":
-                    question = "您能为这个需求提供一个更具体的名称吗？这将帮助我们更清晰地定义项目范围。"
+                    question = "Can you provide a more specific name for this requirement? This will help us define the project scope more clearly."
                 elif field == "description":
                     if issue == "vague_term":
                         term = point.get("term", "")
-                        question = f"您提到了'{term}'，能否详细说明这包括哪些具体功能或特性？在类似的系统中，这通常如何实现？"
+                        question = f"You mentioned '{term}', could you explain in detail what specific features or characteristics this includes? How is this typically implemented in similar systems?"
                     else:
-                        question = "能否更详细地描述您期望的功能和用户体验？如果有类似的产品或网站可以参考，请告诉我。"
+                        question = "Could you describe in more detail the features and user experience you expect? If there are similar products or websites for reference, please let me know."
                 elif field == "acceptance_criteria":
-                    question = "在您看来，什么样的标准可以表明这个需求已经被成功实现了？用户应该能够完成哪些操作？"
+                    question = "In your view, what standards would indicate that this requirement has been successfully implemented? What operations should users be able to perform?"
                 elif field == "constraints":
-                    question = "您对这个项目有哪些限制条件或特殊要求？比如性能要求、兼容性、安全性等方面的考虑。"
+                    question = "Do you have any constraints or special requirements for this project? For example, considerations regarding performance, compatibility, security, etc."
                 else:
-                    question = "能否提供更多关于这个需求的细节？特别是您期望用户如何与系统交互的场景。"
+                    question = "Could you provide more details about this requirement? Especially scenarios of how you expect users to interact with the system."
                     
             response += f"{i+1}. {question}\n\n"
         
-        response += "此外，您是否了解行业内类似的解决方案？它们有哪些值得借鉴的地方，或者有哪些不足之处需要我们改进？\n\n"
-        response += "您的详细反馈将帮助我更准确地理解您的需求，并设计出最符合您期望的解决方案。"
+        response += "Additionally, are you familiar with similar solutions in the industry? What aspects of these solutions are worth learning from, or what shortcomings do they have that we should improve upon?\n\n"
+        response += "Your detailed feedback will help me understand your requirements more accurately and design a solution that best meets your expectations."
             
         return response
         
@@ -917,22 +919,24 @@ expectation_id: test-creative-portfolio"""
         Returns:
             Response text
         """
-        response = f"我已理解您的需求，并将其转化为结构化的期望模型。以下是我对您需求的详细理解：\n\n"
-        response += f"## 核心需求：{expectation.get('name', 'Expectation')}\n"
-        response += f"详细描述：{expectation.get('description', '')}\n\n"
+        response = f"I've understood your requirements and transformed them into a structured expectation model. Here's my detailed understanding of your needs:\n\n"
+        response += f"## Core Requirement: {expectation.get('name', 'Expectation')}\n"
+        response += f"Detailed Description: {expectation.get('description', '')}\n\n"
         
-        response += "## 我理解的具体要点：\n"
+        response += "## Specific Points I've Understood:\n"
         
         features = []
         if "features" in expectation:
             features = expectation.get("features", [])
         elif expectation.get("acceptance_criteria"):
             for criterion in expectation.get("acceptance_criteria", []):
-                if "能够" in criterion or "支持" in criterion or "提供" in criterion:
+                if "able to" in criterion.lower() or "support" in criterion.lower() or "provide" in criterion.lower():
                     features.append(criterion)
+                if not features and expectation.get("acceptance_criteria"):
+                    features = expectation.get("acceptance_criteria", [])
         
         if features:
-            response += "### 核心功能：\n"
+            response += "### Core Features:\n"
             for i, feature in enumerate(features):
                 response += f"{i+1}. {feature}\n"
             response += "\n"
@@ -942,11 +946,11 @@ expectation_id: test-creative-portfolio"""
             ux_points = expectation.get("user_experience", [])
         elif expectation.get("acceptance_criteria"):
             for criterion in expectation.get("acceptance_criteria", []):
-                if "用户" in criterion or "界面" in criterion or "体验" in criterion:
+                if "user" in criterion.lower() or "interface" in criterion.lower() or "experience" in criterion.lower():
                     ux_points.append(criterion)
         
         if ux_points:
-            response += "### 用户体验要求：\n"
+            response += "### User Experience Requirements:\n"
             for i, point in enumerate(ux_points):
                 response += f"{i+1}. {point}\n"
             response += "\n"
@@ -956,68 +960,71 @@ expectation_id: test-creative-portfolio"""
             tech_points = expectation.get("technical_requirements", [])
         elif expectation.get("acceptance_criteria"):
             for criterion in expectation.get("acceptance_criteria", []):
-                if "性能" in criterion or "安全" in criterion or "技术" in criterion:
+                if "performance" in criterion.lower() or "security" in criterion.lower() or "technical" in criterion.lower():
                     tech_points.append(criterion)
         
         if tech_points:
-            response += "### 技术要求：\n"
+            response += "### Technical Requirements:\n"
             for i, point in enumerate(tech_points):
                 response += f"{i+1}. {point}\n"
             response += "\n"
         
         if not features and not ux_points and not tech_points and expectation.get("acceptance_criteria"):
-            response += "### 系统需要满足的关键点：\n"
+            response += "### Key Points the System Must Meet:\n"
             for i, criterion in enumerate(expectation.get("acceptance_criteria", [])):
                 response += f"{i+1}. {criterion}\n"
             response += "\n"
         
         if expectation.get("constraints"):
-            response += "### 系统约束条件：\n"
+            response += "### System Constraints:\n"
             for i, constraint in enumerate(expectation.get("constraints", [])):
                 response += f"{i+1}. {constraint}\n"
             response += "\n"
         
         if "industry" in expectation or "domain" in expectation:
             industry = expectation.get("industry", expectation.get("domain", ""))
-            response += f"## 行业相关分析（{industry}）：\n"
-            response += "根据您的需求和行业特点，我建议考虑以下方面：\n"
+            response += f"## Industry Analysis ({industry}):\n"
+            response += "Based on your requirements and industry characteristics, I recommend considering the following aspects:\n"
             
-            if "电商" in industry or "商城" in industry:
-                response += "1. 产品展示 - 高质量图片和详细描述对转化率至关重要\n"
-                response += "2. 购物车和结账流程 - 简化流程可减少购物车放弃率\n"
-                response += "3. 用户评价系统 - 增加产品可信度和社会证明\n"
-            elif "博客" in industry or "内容" in industry or "个人网站" in industry:
-                response += "1. 内容组织 - 清晰的分类和标签系统便于内容发现\n"
-                response += "2. 响应式设计 - 确保在各种设备上都有良好的阅读体验\n"
-                response += "3. SEO优化 - 提高内容在搜索引擎中的可见度\n"
-            elif "社交" in industry or "社区" in industry:
-                response += "1. 用户互动功能 - 评论、点赞、分享等增强用户粘性\n"
-                response += "2. 实时通知 - 保持用户参与度和回访率\n"
-                response += "3. 内容审核机制 - 维护健康的社区环境\n"
+            if "ecommerce" in industry.lower() or "shop" in industry.lower() or "store" in industry.lower():
+                response += "1. Product Display - High-quality images and detailed descriptions are crucial for conversion rates\n"
+                response += "2. Shopping Cart and Checkout Process - Simplifying the process can reduce cart abandonment rates\n"
+                response += "3. User Review System - Increases product credibility and social proof\n"
+            elif "blog" in industry.lower() or "content" in industry.lower() or "personal website" in industry.lower():
+                response += "1. Content Organization - Clear categorization and tagging systems facilitate content discovery\n"
+                response += "2. Responsive Design - Ensures a good reading experience across various devices\n"
+                response += "3. SEO Optimization - Improves content visibility in search engines\n"
+            elif "social" in industry.lower() or "community" in industry.lower():
+                response += "1. User Interaction Features - Comments, likes, shares, etc. enhance user stickiness\n"
+                response += "2. Real-time Notifications - Maintain user engagement and return rates\n"
+                response += "3. Content Moderation Mechanism - Maintains a healthy community environment\n"
             else:
-                response += "1. 用户友好的界面设计 - 直观且易于导航的界面\n"
-                response += "2. 安全可靠的数据处理 - 保护用户数据和系统安全\n"
-                response += "3. 高效的性能和响应速度 - 提供流畅的用户体验\n"
+                response += "1. User-friendly Interface Design - Intuitive and easy-to-navigate interface\n"
+                response += "2. Secure and Reliable Data Processing - Protects user data and system security\n"
+                response += "3. Efficient Performance and Response Speed - Provides a smooth user experience\n"
             response += "\n"
         
         if sub_expectations:
-            response += "## 系统组件分解：\n"
-            response += "为了实现这个系统，我将其分解为以下关键组件：\n\n"
+            response += "## System Component Breakdown:\n"
+            response += "To implement this system, I've broken it down into the following key components:\n\n"
             for i, sub in enumerate(sub_expectations):
-                response += f"### {i+1}. {sub.get('name', f'组件 {i+1}')}\n"
-                response += f"描述：{sub.get('description', '')}\n"
+                response += f"### {i+1}. {sub.get('name', f'Component {i+1}')}\n"
+                response += f"Description: {sub.get('description', '')}\n"
                 if sub.get("acceptance_criteria"):
-                    response += "关键功能：\n"
+                    response += "Key Functions:\n"
                     for j, criterion in enumerate(sub.get("acceptance_criteria", [])):
                         response += f"- {criterion}\n"
                 response += "\n"
         
-        response += "## 确认请求\n"
-        response += "请确认我的理解是否准确？特别是：\n"
-        response += "1. 核心需求是否完整捕捉了您的意图？\n"
-        response += "2. 功能点是否有遗漏或需要调整？\n"
-        response += "3. 行业相关的建议是否符合您的期望？\n\n"
-        response += "如果有任何需要调整的地方，请告诉我。如果确认无误，我可以为您生成相应的代码。"
+        response += "## Confirmation Request\n"
+        response += "Please confirm if my understanding is accurate. Specifically:\n"
+        response += "1. Does the core requirement fully capture your intent?\n"
+        response += "2. Are there any features missing or needing adjustment?\n"
+        response += "3. Do the industry-related suggestions meet your expectations?\n\n"
+        response += "If there's anything that needs adjustment, please let me know. If everything is correct, I can generate the corresponding code for you."
+        
+        if expectation.get("id"):
+            response += f"\n\nexpectation_id: {expectation.get('id')}"
         
         return response
         
@@ -1054,8 +1061,8 @@ expectation_id: test-creative-portfolio"""
         3. Offer next steps (code generation, expectation modification, etc.)
         4. Ask if they want to proceed with these steps
         
-        Write your response in Chinese.
+        Write your response in English.
         """
         
         response = self.llm_router.generate(prompt)
-        return response.get("content", "我理解您的需求。您希望对这个期望模型做什么调整，或者您想要直接生成代码？请告诉我您的下一步计划。")
+        return response.get("content", "I understand your requirements. What adjustments would you like to make to this expectation model, or would you like to generate code directly? Please let me know your next steps.")
