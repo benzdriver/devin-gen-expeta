@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom';
 function Sidebar({ activePage, setActivePage, userData }) {
   const navLinks = [
     { id: 'dashboard', icon: 'dashboard', label: '仪表盘', path: '/' },
-    { id: 'requirements', icon: 'description', label: '需求管理', path: '/requirements' },
+    { id: 'chat-requirements', icon: 'chat', label: '统一需求对话', path: '/chat-requirements' },
+    { id: 'requirements', icon: 'description', label: '传统需求管理', path: '/requirements' },
+    { id: 'direct-chat', icon: 'forum', label: '直接聊天测试', path: '/direct-chat' },
     { id: 'expectations', icon: 'format_list_bulleted', label: '期望管理', path: '/expectations' },
     { id: 'code-generation', icon: 'code', label: '代码生成', path: '/code-generation' },
     { id: 'validation', icon: 'verified', label: '验证结果', path: '/validation' },
@@ -44,4 +46,4 @@ function Sidebar({ activePage, setActivePage, userData }) {
   );
 }
 
-export default Sidebar;  
+export default Sidebar;         
