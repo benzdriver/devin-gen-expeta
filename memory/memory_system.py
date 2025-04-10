@@ -99,6 +99,14 @@ class MemorySystem:
             query["code_id"] = code_id
         return self.storage.retrieve("validations", query)
         
+    def get_all_expectations(self):
+        """Get all stored expectations
+        
+        Returns:
+            List of all stored expectations
+        """
+        return self.storage.retrieve("expectations", {})
+
     def _create_default_storage(self):
         """Create default storage provider
         

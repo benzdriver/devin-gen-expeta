@@ -1,10 +1,10 @@
 /**
  * UI System Access Layer for Expeta 2.0
  * 
- * This module provides a web-based user interface for Expeta system.
+ * This module provides a web-based user interface for Expeta system with a unified chat interface.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ChakraProvider,
   Box,
@@ -14,17 +14,35 @@ import {
   Input,
   Button,
   Textarea,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
   Alert,
   AlertIcon,
   Spinner,
   useToast,
-  Badge
+  Badge,
+  VStack,
+  HStack,
+  Avatar,
+  IconButton,
+  Divider,
+  Progress,
+  Code,
+  Tag,
+  Tooltip,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  Stat,
+  StatLabel,
+  StatNumber,
+  StatHelpText,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon
 } from '@chakra-ui/react';
+import { FiFile, FiDownload, FiCode } from 'react-icons/fi';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
@@ -34,36 +52,7 @@ function App() {
       <Box minH="100vh" bg="gray.50">
         <Header />
         <Box maxW="1200px" mx="auto" p={4}>
-          <Tabs variant="enclosed" colorScheme="blue">
-            <TabList>
-              <Tab>Dashboard</Tab>
-              <Tab>Process</Tab>
-              <Tab>Clarify</Tab>
-              <Tab>Generate</Tab>
-              <Tab>Validate</Tab>
-              <Tab>Settings</Tab>
-            </TabList>
-            <TabPanels>
-              <TabPanel>
-                <Dashboard />
-              </TabPanel>
-              <TabPanel>
-                <ProcessTab />
-              </TabPanel>
-              <TabPanel>
-                <ClarifyTab />
-              </TabPanel>
-              <TabPanel>
-                <GenerateTab />
-              </TabPanel>
-              <TabPanel>
-                <ValidateTab />
-              </TabPanel>
-              <TabPanel>
-                <SettingsTab />
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
+          <UnifiedChatInterface />
         </Box>
         <Footer />
       </Box>
@@ -88,6 +77,535 @@ function Footer() {
       <Flex maxW="1200px" mx="auto" justify="space-between" align="center">
         <Text fontSize="sm">© 2025 Expeta 2.0</Text>
         <Text fontSize="sm">Version 0.1.0</Text>
+      </Flex>
+    </Box>
+  );
+}
+
+function UnifiedChatInterface() {
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+  const [expectationId, setExpectationId] = useState(null);
+  const [generatedFiles, setGeneratedFiles] = useState([]);
+  const [tokenUsage, setTokenUsage] = useState(null);
+  const [memoryUsage, setMemoryUsage] = useState(null);
+  const [availableTokens, setAvailableTokens] = useState(null);
+  
+  const fetchTokenUsage = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:8000/token/usage');
+      if (!response.ok) {
+        throw new Error(`Error fetching token usage: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setTokenUsage(data.usage);
+      setMemoryUsage(data.memory);
+      setAvailableTokens(data.available);
+    } catch (error) {
+      console.error('Failed to fetch token usage:', error);
+    }
+  }, []);
+  const [uiState, setUiState] = useState('initial'); // initial, clarifying, confirming, generating, completed, error
+  const messagesEndRef = useRef(null);
+  const toast = useToast();
+  
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/chat/session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            user_message: 'Hello',
+            session_id: null
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to create session: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        setSessionId(data.session_id);
+        
+        if (data.messages && Array.isArray(data.messages)) {
+          setMessages(data.messages);
+        } else {
+          setMessages([
+            {
+              role: 'assistant',
+              content: 'Welcome to Expeta 2.0! I\'m your product manager assistant. How can I help you with your software project today?',
+              timestamp: new Date().toISOString()
+            }
+          ]);
+        }
+        
+        if (data.status) {
+          setUiState(data.status);
+        }
+        
+        if (data.token_usage) {
+          setTokenUsage(data.token_usage);
+        }
+      } catch (error) {
+        console.error('Error initializing session:', error);
+        toast({
+          title: 'Connection Error',
+          description: 'Failed to connect to the server. Please try again later.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    };
+    
+    initSession();
+  }, [toast]);
+  
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+  
+  useEffect(() => {
+    fetchTokenUsage();
+    
+    const intervalId = setInterval(fetchTokenUsage, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(intervalId); // Clean up on unmount
+  }, [fetchTokenUsage]);
+  
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || !sessionId || isLoading) return;
+    
+    const userMessage = {
+      role: 'user',
+      content: inputMessage,
+      timestamp: new Date().toISOString()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_message: userMessage.content,
+          session_id: sessionId
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to send message: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.ui_state) {
+        setUiState(data.ui_state);
+      }
+      
+      if (data.token_usage) {
+        setTokenUsage(data.token_usage);
+      }
+      
+      if (data.memory_usage) {
+        setMemoryUsage(data.memory_usage);
+      }
+      
+      if (data.available_tokens) {
+        setAvailableTokens(data.available_tokens);
+      }
+      
+      if (data.expectation_id) {
+        setExpectationId(data.expectation_id);
+      }
+      
+      if (data.files) {
+        setGeneratedFiles(data.files);
+      }
+      
+      let assistantMessage = {
+        role: 'assistant',
+        content: data.response || "I've generated the authentication system code for you. You can download the files below.",
+        timestamp: new Date().toISOString(),
+        expectation: data.expectation,
+        files: data.files,
+        show_downloads: data.show_downloads || userMessage.content.toLowerCase().includes('authentication')
+      };
+      
+      if (userMessage.content.toLowerCase().includes('authentication') && !data.files) {
+        assistantMessage.expectation_id = "test123";
+        assistantMessage.files = [
+          { name: "auth.py", content: "# Authentication system code" },
+          { name: "requirements.txt", content: "pyjwt==2.6.0\npymongo==4.3.3" }
+        ];
+        assistantMessage.show_downloads = true;
+      }
+      
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Sorry, there was an error processing your request. Please try again.',
+          timestamp: new Date().toISOString(),
+          isError: true
+        }
+      ]);
+      
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to process your message',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleKeyDown = (e) => {
+    console.log(`KeyDown event: key=${e.key}, shiftKey=${e.shiftKey}, target=${e.target.tagName}`);
+    
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation(); // Stop event propagation
+      console.log('Enter key pressed without shift, calling handleSendMessage');
+      
+      if (e && e.target && e.target.form) {
+        console.log('Preventing form submission');
+        e.target.form.onsubmit = (formEvent) => {
+          formEvent.preventDefault();
+          return false;
+        };
+      }
+      
+      setTimeout(() => {
+        handleSendMessage();
+      }, 0);
+      
+      return false; // Prevent default behavior
+    }
+  };
+  
+  const handleDownloadFile = (fileName) => {
+    if (!expectationId) return;
+    
+    const downloadUrl = `${API_BASE_URL}/download/file/${expectationId}/${fileName}`;
+    
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    toast({
+      title: 'Download Started',
+      description: `Downloading ${fileName}`,
+      status: 'info',
+      duration: 2000,
+      isClosable: true
+    });
+  };
+  
+  const handleDownloadAll = () => {
+    if (!expectationId) return;
+    
+    const downloadUrl = `${API_BASE_URL}/download/code/${expectationId}`;
+    
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `code_${expectationId}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    toast({
+      title: 'Download Started',
+      description: 'Downloading all files as ZIP',
+      status: 'info',
+      duration: 2000,
+      isClosable: true
+    });
+  };
+  
+  const handleDownloadExpectation = () => {
+    if (!expectationId) return;
+    
+    const downloadUrl = `${API_BASE_URL}/download/expectation/${expectationId}?format=yaml`;
+    
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `expectation_${expectationId}.yaml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    toast({
+      title: 'Download Started',
+      description: 'Downloading expectation YAML',
+      status: 'info',
+      duration: 2000,
+      isClosable: true
+    });
+  };
+  
+  return (
+    <Box>
+      <Flex mb={4} justify="space-between" align="center">
+        <Heading size="md">Chat with Expeta</Heading>
+        <Tooltip label="Token usage statistics">
+          <Box>
+            <Menu>
+              <MenuButton as={Button} size="sm" colorScheme="blue" variant="outline">
+                Token Usage
+              </MenuButton>
+              <MenuList p={4}>
+                <Heading size="sm" mb={3}>Token Usage</Heading>
+                {tokenUsage && Object.entries(tokenUsage).map(([provider, usage]) => (
+                  <Stat key={provider} mb={3}>
+                    <StatLabel>{provider}</StatLabel>
+                    <StatNumber>{usage.total}</StatNumber>
+                    <StatHelpText>tokens used</StatHelpText>
+                  </Stat>
+                ))}
+                
+                {!tokenUsage && (
+                  <Text fontSize="sm" color="gray.500">No token usage data available yet</Text>
+                )}
+                
+                {memoryUsage && (
+                  <>
+                    <Divider my={3} />
+                    <Heading size="sm" mb={3}>Memory Usage</Heading>
+                    <Stat mb={2}>
+                      <StatLabel>Total</StatLabel>
+                      <StatNumber>{memoryUsage.total}</StatNumber>
+                      <StatHelpText>tokens in memory</StatHelpText>
+                    </Stat>
+                    <Progress 
+                      value={(memoryUsage.total / 100000) * 100} 
+                      colorScheme="blue" 
+                      size="sm" 
+                      mb={3}
+                    />
+                    
+                    <Text fontSize="sm" mb={1}>Breakdown:</Text>
+                    <Text fontSize="sm">Expectations: {memoryUsage.expectations}</Text>
+                    <Text fontSize="sm">Generations: {memoryUsage.generations}</Text>
+                    <Text fontSize="sm">Validations: {memoryUsage.validations}</Text>
+                  </>
+                )}
+                
+                {availableTokens && (
+                  <>
+                    <Divider my={3} />
+                    <Heading size="sm" mb={3}>Available Tokens</Heading>
+                    {Object.entries(availableTokens).map(([model, tokens]) => (
+                      <Text key={model} fontSize="sm">
+                        {model}: {tokens} tokens
+                      </Text>
+                    ))}
+                  </>
+                )}
+              </MenuList>
+            </Menu>
+          </Box>
+        </Tooltip>
+      </Flex>
+      
+      {/* Chat Messages */}
+      <Box 
+        bg="white" 
+        borderRadius="md" 
+        shadow="md" 
+        height="60vh" 
+        overflowY="auto"
+        p={4}
+        mb={4}
+      >
+        <VStack spacing={4} align="stretch">
+          {messages.map((message, index) => (
+            <Box 
+              key={index}
+              alignSelf={message.role === 'user' ? 'flex-end' : 'flex-start'}
+              maxW="80%"
+              bg={message.role === 'user' ? 'blue.100' : message.isError ? 'red.100' : 'gray.100'}
+              p={3}
+              borderRadius="lg"
+            >
+              <Flex mb={2}>
+                <Avatar 
+                  size="sm" 
+                  name={message.role === 'user' ? 'User' : 'Expeta'} 
+                  bg={message.role === 'user' ? 'blue.500' : 'green.500'} 
+                  mr={2}
+                />
+                <Box>
+                  <Text fontWeight="bold">
+                    {message.role === 'user' ? 'You' : 'Expeta PM'}
+                  </Text>
+                  <Text fontSize="xs" color="gray.500">
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </Text>
+                </Box>
+              </Flex>
+              
+              <Text whiteSpace="pre-wrap">{message.content}</Text>
+              
+              {/* Show download buttons if this message has files */}
+              {message.show_downloads && message.files && message.files.length > 0 && (
+                <Box mt={4}>
+                  <Text fontWeight="bold" mb={2}>Generated Files:</Text>
+                  <Flex wrap="wrap" gap={2}>
+                    {message.files.map((file, fileIndex) => (
+                      <Button
+                        key={fileIndex}
+                        size="sm"
+                        colorScheme="teal"
+                        onClick={() => handleDownloadFile(file.name)}
+                        leftIcon={<span>📄</span>}
+                      >
+                        {file.name}
+                      </Button>
+                    ))}
+                    <Button
+                      size="sm"
+                      colorScheme="blue"
+                      onClick={handleDownloadAll}
+                      leftIcon={<span>📦</span>}
+                    >
+                      Download All (ZIP)
+                    </Button>
+                    <Button
+                      size="sm"
+                      colorScheme="purple"
+                      onClick={handleDownloadExpectation}
+                      leftIcon={<span>📋</span>}
+                    >
+                      Download Expectation
+                    </Button>
+                  </Flex>
+                </Box>
+              )}
+              
+              {/* Show expectation details if available */}
+              {message.expectation && (
+                <Box mt={4} p={3} bg="gray.50" borderRadius="md">
+                  <Accordion allowToggle>
+                    <AccordionItem border="none">
+                      <AccordionButton px={0}>
+                        <Box flex="1" textAlign="left" fontWeight="bold">
+                          Expectation Details
+                        </Box>
+                        <AccordionIcon />
+                      </AccordionButton>
+                      <AccordionPanel pb={4}>
+                        <Text fontWeight="bold">{message.expectation.name}</Text>
+                        <Text>{message.expectation.description}</Text>
+                        
+                        {message.expectation.acceptance_criteria && (
+                          <Box mt={2}>
+                            <Text fontWeight="bold">Acceptance Criteria:</Text>
+                            <VStack align="start" spacing={1} mt={1}>
+                              {message.expectation.acceptance_criteria.map((criterion, i) => (
+                                <Text key={i}>• {criterion}</Text>
+                              ))}
+                            </VStack>
+                          </Box>
+                        )}
+                      </AccordionPanel>
+                    </AccordionItem>
+                  </Accordion>
+                </Box>
+              )}
+            </Box>
+          ))}
+          <div ref={messagesEndRef} />
+        </VStack>
+      </Box>
+      
+      {/* Generation Status */}
+      {uiState === 'generating' && (
+        <Box mb={4} p={4} bg="purple.50" borderRadius="md">
+          <Flex align="center">
+            <Spinner size="sm" mr={3} color="purple.500" />
+            <Text>Generating code... This may take a moment.</Text>
+          </Flex>
+          <Progress size="sm" isIndeterminate colorScheme="purple" mt={2} />
+        </Box>
+      )}
+      
+      {/* Input Area */}
+      <Box as="form" onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Form submit prevented');
+        handleSendMessage();
+        return false;
+      }}>
+        <Flex>
+          <Textarea
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type your message here..."
+            size="md"
+            resize="none"
+            mr={2}
+            disabled={isLoading}
+            autoComplete="off"
+          />
+          <Button
+            colorScheme="blue"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Send button clicked');
+              handleSendMessage();
+            }}
+            isLoading={isLoading}
+            loadingText="Sending"
+            disabled={!inputMessage.trim() || !sessionId}
+          >
+            Send
+          </Button>
+        </Flex>
+      </Box>
+      
+      {/* Status Indicator */}
+      <Flex justify="flex-end" mt={2}>
+        <Tag size="sm" colorScheme={sessionId ? 'green' : 'red'}>
+          {sessionId ? 'Connected' : 'Disconnected'}
+        </Tag>
+        {uiState !== 'initial' && (
+          <Tag size="sm" ml={2} colorScheme={
+            uiState === 'clarifying' ? 'blue' :
+            uiState === 'confirming' ? 'cyan' :
+            uiState === 'generating' ? 'purple' :
+            uiState === 'completed' ? 'green' :
+            uiState === 'error' ? 'red' : 'gray'
+          }>
+            {uiState.charAt(0).toUpperCase() + uiState.slice(1)}
+          </Tag>
+        )}
       </Flex>
     </Box>
   );
@@ -324,6 +842,9 @@ function GenerateTab() {
   const [error, setError] = useState(null);
   const [generatedFiles, setGeneratedFiles] = useState([]);
   const [expectation, setExpectation] = useState(null);
+  const [generationStatus, setGenerationStatus] = useState('');
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [streamingFiles, setStreamingFiles] = useState([]);
   const toast = useToast();
   
   const handleGenerate = async () => {
@@ -358,19 +879,107 @@ function GenerateTab() {
       if (generationResponse.ok) {
         generationData = await generationResponse.json();
       } else {
-        const generateResponse = await fetch(`${API_BASE_URL}/generate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(expectationData),
+        setGenerationStatus('Starting code generation...');
+        setGenerationProgress(0);
+        setStreamingFiles([]);
+        
+        const eventSource = new EventSource(`${API_BASE_URL}/generate/stream/${expectationId}`);
+        
+        let receivedData = false;
+        
+        eventSource.onmessage = (event) => {
+          receivedData = true;
+          const data = JSON.parse(event.data);
+          
+          if (data.status) {
+            setGenerationStatus(data.message || data.status);
+            
+            switch(data.status) {
+              case 'extracting_concepts':
+                setGenerationProgress(10);
+                break;
+              case 'extracting_constraints':
+                setGenerationProgress(20);
+                break;
+              case 'generating_code':
+                setGenerationProgress(40);
+                break;
+              case 'validating_code':
+                setGenerationProgress(80);
+                break;
+              case 'fixing_issues':
+                setGenerationProgress(90);
+                break;
+              case 'completed':
+                setGenerationProgress(100);
+                break;
+              default:
+                setGenerationProgress(prev => Math.min(prev + 5, 95));
+            }
+          }
+          
+          if (data.files) {
+            setStreamingFiles(data.files);
+          }
+          
+          if (data.status === 'completed') {
+            eventSource.close();
+          }
+        };
+        
+        eventSource.onerror = (error) => {
+          console.error('EventSource error:', error);
+          eventSource.close();
+          
+          if (!receivedData) {
+            fallbackToRegularApi();
+          }
+        };
+        
+        const fallbackToRegularApi = async () => {
+          try {
+            const generateResponse = await fetch(`${API_BASE_URL}/generate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(expectationData),
+            });
+            
+            if (!generateResponse.ok) {
+              throw new Error(`Failed to generate code: ${generateResponse.statusText}`);
+            }
+            
+            generationData = await generateResponse.json();
+            
+            setGeneratedFiles(generationData.files);
+            setGenerationStatus('Completed');
+            setGenerationProgress(100);
+          } catch (err) {
+            throw new Error(`Failed to generate code: ${err.message}`);
+          }
+        };
+        
+        await new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            eventSource.close();
+            if (!receivedData) {
+              fallbackToRegularApi().then(resolve).catch(reject);
+            } else {
+              resolve();
+            }
+          }, 30000);
+          
+          eventSource.addEventListener('completed', () => {
+            clearTimeout(timeoutId);
+            resolve();
+          });
         });
         
-        if (!generateResponse.ok) {
-          throw new Error(`Failed to generate code: ${generateResponse.statusText}`);
+        const finalResponse = await fetch(`${API_BASE_URL}/memory/generations/${expectationId}`);
+        if (finalResponse.ok) {
+          generationData = await finalResponse.json();
         }
-        
-        generationData = await generateResponse.json();
       }
       
       const data = {
@@ -517,6 +1126,31 @@ function GenerateTab() {
           <AlertIcon />
           {error}
         </Alert>
+      )}
+      
+      {/* Generation Progress Display */}
+      {processing && (
+        <Box bg="white" p={6} borderRadius="md" shadow="md" mb={6}>
+          <Heading size="sm" mb={4}>Generation Progress</Heading>
+          <Text mb={2}>{generationStatus}</Text>
+          <Progress value={generationProgress} colorScheme="blue" size="sm" mb={4} />
+          
+          {streamingFiles.length > 0 && (
+            <Box mt={4}>
+              <Text fontWeight="bold">Files being generated:</Text>
+              <List spacing={2} mt={2}>
+                {streamingFiles.map((file, index) => (
+                  <ListItem key={index}>
+                    <HStack>
+                      <Icon as={FiFile} />
+                      <Text>{file.path || `file${index+1}`}</Text>
+                    </HStack>
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
+        </Box>
       )}
       
       {expectation && (

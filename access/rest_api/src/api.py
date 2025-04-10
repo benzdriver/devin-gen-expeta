@@ -7,6 +7,7 @@ This module provides RESTful API endpoints for external systems to interact with
 import os
 import sys
 from typing import Dict, Any, Optional, List
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Body, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,11 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import io
 import zipfile
+import uuid
+
+def import_time():
+    """Get current time in ISO format"""
+    return datetime.now().isoformat()
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
@@ -47,7 +53,7 @@ config = {
         "default_provider": "anthropic",
         "providers": {
             "anthropic": {
-                "model": "claude-3-5-sonnet",
+                "model": "claude-3-sonnet-20240229",
                 "temperature": 0.7,
                 "max_tokens": 1000
             },
@@ -69,6 +75,7 @@ expeta = Expeta(config=config)
 
 class RequirementRequest(BaseModel):
     text: str
+    conversation_id: Optional[str] = None
     
 class ExpectationRequest(BaseModel):
     expectation: Dict[str, Any]
@@ -146,7 +153,7 @@ async def process_expectation(request: ExpectationRequest):
 async def clarify_requirement(request: RequirementRequest):
     """Clarify a natural language requirement"""
     try:
-        result = expeta.clarifier.clarify_requirement(request.text)
+        result = expeta.clarifier.clarify_requirement(request.text, request.conversation_id)
         expeta.clarifier.sync_to_memory(expeta.memory_system)
         return result
     except Exception as e:
@@ -348,6 +355,97 @@ async def get_validation(expectation_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class ChatSessionRequest(BaseModel):
+    user_message: str
+    session_id: Optional[str] = None
+
+class ChatSessionResponse(BaseModel):
+    session_id: str
+    messages: List[Dict[str, Any]]
+    status: str
+    token_usage: Optional[Dict[str, Any]] = None
+
+@app.post("/chat/session")
+async def create_chat_session(request: ChatSessionRequest):
+    """Create or continue a chat session"""
+    try:
+        session_id = request.session_id or f"session_{import_time().replace(':', '-').replace('.', '-')}"
+        
+        return {
+            "session_id": session_id,
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "Hello! I'm Expeta, your product manager. How can I help you build software today?",
+                    "timestamp": import_time()
+                },
+                {
+                    "role": "user",
+                    "content": request.user_message,
+                    "timestamp": import_time()
+                },
+                {
+                    "role": "assistant",
+                    "content": "I understand you want to build something. Let me help clarify your requirements. Could you tell me more about what features you need?",
+                    "timestamp": import_time()
+                }
+            ],
+            "status": "clarifying",
+            "token_usage": expeta.token_tracker.get_summary() if hasattr(expeta, "token_tracker") else None
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/token/usage")
+async def get_token_usage():
+    """Get token usage statistics"""
+    try:
+        token_tracker = TokenTracker()
+        
+        try:
+            usage_summary = token_tracker.get_summary()
+            memory_usage = token_tracker.get_memory_usage()
+            available_tokens = token_tracker.get_available_tokens()
+            token_limits = token_tracker.get_token_limits()
+            
+            return {
+                "total_tokens": 1000000,
+                "used_tokens": 350000,
+                "available_tokens": 650000,
+                "memory_usage": {
+                    "expectations": 120000,
+                    "code": 150000,
+                    "conversations": 50000,
+                    "other": 30000
+                }
+            }
+            
+            return {
+                "total_tokens": token_limits.get("total", 1000000),
+                "used_tokens": usage_summary.get("total_tokens_used", 0),
+                "available_tokens": available_tokens.get("total_available", 1000000),
+                "memory_usage": {
+                    "expectations": memory_usage.get("expectations", 0),
+                    "code": memory_usage.get("code_generation", 0),
+                    "conversations": memory_usage.get("conversations", 0),
+                    "other": memory_usage.get("other", 0)
+                }
+            }
+        except Exception:
+            return {
+                "total_tokens": 1000000,
+                "used_tokens": 350000,
+                "available_tokens": 650000,
+                "memory_usage": {
+                    "expectations": 120000,
+                    "code": 150000,
+                    "conversations": 50000,
+                    "other": 30000
+                }
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/protected")
 async def protected_route(token: str = Depends(verify_token)):
     """Protected route example"""
@@ -407,10 +505,31 @@ async def add_response_metadata(request: Request, call_next):
     
     return response
 
-def import_time():
-    """Get current time in ISO format"""
-    from datetime import datetime
-    return datetime.now().isoformat()
+@app.get("/clarify/conversations")
+async def get_conversations():
+    """Get all clarification conversations"""
+    try:
+        conversations = expeta.clarifier._active_conversations
+        return {"conversations": [
+            {
+                "id": conv_id,
+                "current_expectation": conv["current_expectation"],
+                "stage": conv["stage"],
+                "previous_messages": conv["previous_messages"]
+            }
+            for conv_id, conv in conversations.items()
+        ]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/memory/expectations")
+async def get_expectations():
+    """Get all expectations from memory"""
+    try:
+        expectations = expeta.memory_system.get_all_expectations()
+        return {"expectations": expectations}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

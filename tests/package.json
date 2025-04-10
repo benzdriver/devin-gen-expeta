@@ -1,0 +1,15 @@
+{
+  "name": "expeta-tests",
+  "version": "1.0.0",
+  "description": "Integration tests for Expeta 2.0",
+  "scripts": {
+    "test": "node integration_test.js",
+    "test:ui": "node integration_test.js",
+    "test:functional": "node functional_test.js"
+  },
+  "dependencies": {
+    "puppeteer": "^20.8.2",
+    "node-fetch": "^3.3.2"
+  },
+  "type": "module"
+} 

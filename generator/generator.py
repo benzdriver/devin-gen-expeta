@@ -3,42 +3,86 @@ Generator Module for Expeta 2.0
 
 This module generates code based on semantic expectations.
 """
+from datetime import datetime
+import json
+import re
+import time
+from typing import Dict, List, Optional, Callable, Any
 
 class Generator:
     """Code generator, generates code implementations based on expectations"""
 
-    def __init__(self, llm_router=None):
+    def __init__(self, llm_router=None, token_tracker=None):
         """Initialize with optional LLM router
         
         Args:
             llm_router: Optional LLM router. If not provided, default router will be created.
+            token_tracker: Optional token tracker for monitoring token usage.
         """
         self.llm_router = llm_router or self._create_default_llm_router()
         self._generation_results = []
+        self.token_tracker = token_tracker
+        self._active_generations = {}  # Store active generation processes
+        self._generation_callbacks = {}  # Callbacks for streaming updates
 
-    def generate(self, expectation):
+    def generate(self, expectation, callback=None):
         """Generate code based on expectation
         
         Args:
             expectation: Expectation dictionary
+            callback: Optional callback function for streaming updates
             
         Returns:
             Dictionary with generated code and metadata
         """
-        key_concepts = self._extract_key_concepts(expectation)
-        constraints = self._extract_constraints(expectation)
-
-        code = self._generate_code_from_concepts(key_concepts, constraints)
-
-        result = {
-            "expectation_id": expectation.get("id"),
-            "generated_code": code,
-            "generation_metadata": self._collect_metadata()
+        expectation_id = expectation.get("id")
+        
+        if callback:
+            self._generation_callbacks[expectation_id] = callback
+            
+        self._active_generations[expectation_id] = {
+            "status": "extracting_concepts",
+            "start_time": datetime.now().isoformat(),
+            "expectation": expectation,
+            "partial_results": {},
+            "completed": False
         }
-
-        self._generation_results.append(result)
-
-        return result
+        
+        try:
+            self._update_generation_status(expectation_id, "extracting_concepts", "Extracting key concepts from requirements...")
+            key_concepts = self._extract_key_concepts(expectation)
+            
+            self._update_generation_status(expectation_id, "extracting_constraints", "Identifying constraints...")
+            constraints = self._extract_constraints(expectation)
+            
+            self._active_generations[expectation_id]["partial_results"] = {
+                "key_concepts": key_concepts,
+                "constraints": constraints
+            }
+            
+            self._update_generation_status(expectation_id, "generating_code", "Generating code implementation...")
+            code = self._generate_code_from_concepts(key_concepts, constraints, expectation_id)
+            
+            result = {
+                "expectation_id": expectation_id,
+                "files": code.get("files", []),
+                "language": code.get("language", "unknown"),
+                "explanation": code.get("explanation", ""),
+                "generation_metadata": self._collect_metadata()
+            }
+            
+            self._active_generations[expectation_id]["completed"] = True
+            self._active_generations[expectation_id]["status"] = "completed"
+            self._update_generation_status(expectation_id, "completed", "Code generation completed successfully")
+            
+            self._generation_results.append(result)
+            
+            return result
+            
+        except Exception as e:
+            self._update_generation_status(expectation_id, "error", f"Error during generation: {str(e)}")
+            self._active_generations[expectation_id]["error"] = str(e)
+            raise
 
     def sync_to_memory(self, memory_system):
         """Sync generation results to memory system (delayed call)
@@ -56,6 +100,108 @@ class Generator:
         self._generation_results = []
 
         return {"synced_count": synced_count}
+        
+    def get_generation_status(self, expectation_id):
+        """Get the current status of a generation process
+        
+        Args:
+            expectation_id: ID of the expectation being generated
+            
+        Returns:
+            Dictionary with generation status information
+        """
+        if expectation_id not in self._active_generations:
+            return {"status": "not_found", "message": "Generation not found"}
+            
+        return self._active_generations[expectation_id]
+        
+    def resume_generation(self, expectation_id, callback=None):
+        """Resume a failed or interrupted generation process
+        
+        Args:
+            expectation_id: ID of the expectation to resume
+            callback: Optional callback function for streaming updates
+            
+        Returns:
+            Dictionary with generation result or status
+        """
+        if expectation_id not in self._active_generations:
+            return {"status": "not_found", "message": "Generation not found"}
+            
+        generation_state = self._active_generations[expectation_id]
+        
+        if generation_state.get("completed", False):
+            return {"status": "already_completed", "message": "Generation already completed"}
+            
+        if callback:
+            self._generation_callbacks[expectation_id] = callback
+            
+        status = generation_state.get("status", "")
+        partial_results = generation_state.get("partial_results", {})
+        expectation = generation_state.get("expectation", {})
+        
+        self._update_generation_status(expectation_id, "resuming", f"Resuming generation from {status}...")
+        
+        try:
+            if status == "extracting_concepts" or "key_concepts" not in partial_results:
+                return self.generate(expectation, callback)
+                
+            elif status == "extracting_constraints" or "constraints" not in partial_results:
+                self._update_generation_status(expectation_id, "extracting_constraints", "Resuming constraint extraction...")
+                key_concepts = partial_results["key_concepts"]
+                constraints = self._extract_constraints(expectation)
+                
+                partial_results["constraints"] = constraints
+                generation_state["partial_results"] = partial_results
+                
+                self._update_generation_status(expectation_id, "generating_code", "Generating code implementation...")
+                code = self._generate_code_from_concepts(key_concepts, constraints, expectation_id)
+                
+                result = {
+                    "expectation_id": expectation_id,
+                    "files": code.get("files", []),
+                    "language": code.get("language", "unknown"),
+                    "explanation": code.get("explanation", ""),
+                    "generation_metadata": self._collect_metadata()
+                }
+                
+                generation_state["completed"] = True
+                generation_state["status"] = "completed"
+                self._update_generation_status(expectation_id, "completed", "Code generation completed successfully")
+                
+                self._generation_results.append(result)
+                
+                return result
+                
+            elif status == "generating_code" or status == "error":
+                self._update_generation_status(expectation_id, "generating_code", "Resuming code generation...")
+                key_concepts = partial_results["key_concepts"]
+                constraints = partial_results["constraints"]
+                
+                code = self._generate_code_from_concepts(key_concepts, constraints, expectation_id)
+                
+                result = {
+                    "expectation_id": expectation_id,
+                    "files": code.get("files", []),
+                    "language": code.get("language", "unknown"),
+                    "explanation": code.get("explanation", ""),
+                    "generation_metadata": self._collect_metadata()
+                }
+                
+                generation_state["completed"] = True
+                generation_state["status"] = "completed"
+                self._update_generation_status(expectation_id, "completed", "Code generation completed successfully")
+                
+                self._generation_results.append(result)
+                
+                return result
+                
+        except Exception as e:
+            self._update_generation_status(expectation_id, "error", f"Error during resumed generation: {str(e)}")
+            generation_state["error"] = str(e)
+            raise
+            
+        return {"status": "unknown_state", "message": "Could not determine how to resume generation"}
         
     def _create_default_llm_router(self):
         """Create default LLM router
@@ -102,25 +248,99 @@ class Generator:
         
         return unique_constraints
         
-    def _generate_code_from_concepts(self, key_concepts, constraints):
+    def _update_generation_status(self, expectation_id, status, message):
+        """Update the status of a generation process and notify callback
+        
+        Args:
+            expectation_id: ID of the expectation being generated
+            status: New status string
+            message: Status message
+            
+        Returns:
+            None
+        """
+        if expectation_id not in self._active_generations:
+            return
+            
+        self._active_generations[expectation_id]["status"] = status
+        self._active_generations[expectation_id]["message"] = message
+        self._active_generations[expectation_id]["updated_at"] = datetime.now().isoformat()
+        
+        if expectation_id in self._generation_callbacks and self._generation_callbacks[expectation_id]:
+            try:
+                self._generation_callbacks[expectation_id]({
+                    "expectation_id": expectation_id,
+                    "status": status,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                })
+            except Exception as e:
+                print(f"Error in generation callback: {str(e)}")
+                
+    def _generate_code_from_concepts(self, key_concepts, constraints, expectation_id=None):
         """Generate code from key concepts and constraints
         
         Args:
             key_concepts: Dictionary of key concepts
             constraints: List of constraints
+            expectation_id: Optional ID for streaming updates
             
         Returns:
             Generated code dictionary
         """
         prompt = self._create_code_generation_prompt(key_concepts, constraints)
         
-        response = self.llm_router.generate(prompt, {"temperature": 0.2})
+        if expectation_id:
+            partial_code = {"files": [], "language": "unknown", "explanation": ""}
+            
+            def stream_callback(chunk):
+                nonlocal partial_code
+                try:
+                    content = chunk.get("content", "")
+                    import re
+                    code_blocks = re.findall(r"```(\w+)\s+(.*?)```", content, re.DOTALL)
+                    
+                    if code_blocks:
+                        for language, code in code_blocks:
+                            partial_code["language"] = language
+                            file_exists = False
+                            
+                            for file in partial_code["files"]:
+                                if code in file["content"]:
+                                    file_exists = True
+                                    break
+                                    
+                            if not file_exists:
+                                file_path = f"file{len(partial_code['files'])+1}.{language}"
+                                partial_code["files"].append({
+                                    "path": file_path,
+                                    "content": code
+                                })
+                                
+                        if expectation_id:
+                            self._update_generation_status(
+                                expectation_id, 
+                                "generating_code", 
+                                f"Generated {len(partial_code['files'])} files so far..."
+                            )
+                except Exception as e:
+                    print(f"Error processing streaming chunk: {str(e)}")
+                    
+            response = self.llm_router.generate(prompt, {"temperature": 0.2, "stream": True}, stream_callback)
+        else:
+            response = self.llm_router.generate(prompt, {"temperature": 0.2})
         
         code = self._parse_code_from_response(response)
         
+        if expectation_id:
+            self._update_generation_status(expectation_id, "validating_code", "Validating generated code...")
+            
         validation_result = self._self_validate_code(code, key_concepts, constraints)
         
         if not validation_result["valid"]:
+            if expectation_id:
+                self._update_generation_status(expectation_id, "fixing_issues", "Fixing issues in generated code...")
+                
             fixed_code = self._fix_code_issues(code, validation_result["issues"])
             code = fixed_code
         

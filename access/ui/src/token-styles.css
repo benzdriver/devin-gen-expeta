@@ -1,0 +1,101 @@
+/* Token使用统计样式 */
+.token-stats {
+    margin-bottom: 20px;
+}
+
+.token-usage-bar {
+    height: 20px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    overflow: hidden;
+}
+
+.token-used {
+    height: 100%;
+    background-color: var(--primary-color);
+    border-radius: 10px;
+    transition: width 0.5s ease;
+}
+
+.token-stats-details {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.token-stat {
+    flex: 1;
+    min-width: 150px;
+    margin-bottom: 10px;
+}
+
+.token-label {
+    font-size: 0.9em;
+    color: var(--text-light);
+    margin-right: 5px;
+}
+
+.token-value {
+    font-weight: 500;
+}
+
+.memory-usage-title {
+    font-size: 1em;
+    font-weight: 500;
+    margin: 20px 0 15px;
+}
+
+.memory-usage {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.memory-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.memory-label {
+    width: 100px;
+    font-size: 0.9em;
+}
+
+.memory-bar-container {
+    flex: 1;
+    height: 15px;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.memory-bar {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.5s ease;
+}
+
+.memory-bar.expectations {
+    background-color: #4caf50;
+}
+
+.memory-bar.code {
+    background-color: #2196f3;
+}
+
+.memory-bar.conversations {
+    background-color: #ff9800;
+}
+
+.memory-bar.other {
+    background-color: #9e9e9e;
+}
+
+.memory-value {
+    width: 80px;
+    text-align: right;
+    font-size: 0.9em;
+    font-weight: 500;
+}

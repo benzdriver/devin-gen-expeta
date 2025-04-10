@@ -142,3 +142,113 @@ class TokenTracker:
             "openai": {"total": self.total_usage["openai"]["total_tokens"]},
             "local": {"total": self.total_usage["local"]["total_tokens"]}
         }
+        
+    def get_summary(self):
+        """Get a summary of token usage (alias for get_usage_report)
+        
+        Returns:
+            Dictionary with token usage summary
+        """
+        return self.get_usage_report()
+        
+    def track_memory_usage(self, memory_type, content):
+        """Track token usage for memory storage
+        
+        Args:
+            memory_type: Type of memory (expectations, generations, validations)
+            content: Content being stored in memory
+            
+        Returns:
+            Estimated token count
+        """
+        if isinstance(content, str):
+            token_count = self.estimate_tokens(content)
+        elif isinstance(content, dict) or isinstance(content, list):
+            token_count = self.estimate_tokens(json.dumps(content))
+        else:
+            token_count = 0
+            
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "memory_type": memory_type,
+            "token_count": token_count
+        }
+        
+        with open(self.log_dir / "memory_usage.jsonl", "a") as f:
+            f.write(json.dumps(log_entry) + "\n")
+            
+        return token_count
+        
+    def estimate_tokens(self, text):
+        """Estimate token count for text
+        
+        Args:
+            text: Text to estimate tokens for
+            
+        Returns:
+            Estimated token count
+        """
+        return len(text) // 4
+        
+    def get_memory_usage(self):
+        """Get memory usage statistics
+        
+        Returns:
+            Dictionary with memory usage statistics
+        """
+        memory_usage = {
+            "expectations": 0,
+            "generations": 0,
+            "validations": 0,
+            "total": 0
+        }
+        
+        try:
+            with open(self.log_dir / "memory_usage.jsonl", "r") as f:
+                for line in f:
+                    try:
+                        entry = json.loads(line)
+                        memory_type = entry.get("memory_type")
+                        token_count = entry.get("token_count", 0)
+                        
+                        if memory_type in memory_usage:
+                            memory_usage[memory_type] += token_count
+                    except:
+                        pass
+                        
+            memory_usage["total"] = sum([
+                memory_usage["expectations"],
+                memory_usage["generations"],
+                memory_usage["validations"]
+            ])
+        except:
+            pass
+            
+        return memory_usage
+        
+    def get_token_limits(self):
+        """Get token limits for different models
+        
+        Returns:
+            Dictionary with token limits by model
+        """
+        return {
+            "anthropic/claude-2": 100000,
+            "openai/gpt-4": 8192,
+            "openai/gpt-3.5-turbo": 4096
+        }
+        
+    def get_available_tokens(self):
+        """Calculate available tokens for different models
+        
+        Returns:
+            Dictionary with available tokens by model
+        """
+        memory_usage = self.get_memory_usage()
+        token_limits = self.get_token_limits()
+        available = {}
+        
+        for model, limit in token_limits.items():
+            available[model] = max(0, limit - memory_usage["total"])
+            
+        return available

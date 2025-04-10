@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Page - Expeta 2.0</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+        }
+        .debug-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .log-area {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        button {
+            padding: 8px 15px;
+            margin: 5px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        input, textarea {
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <h1>Expeta 2.0 Debug Page</h1>
+    
+    <div class="debug-section">
+        <h2>Event Logging</h2>
+        <div id="event-log" class="log-area"></div>
+        <button id="clear-log">Clear Log</button>
+    </div>
+    
+    <div class="debug-section">
+        <h2>Form Test</h2>
+        <form id="test-form">
+            <input type="text" id="test-input" placeholder="Type something here...">
+            <button type="submit" id="test-submit">Submit Form</button>
+        </form>
+    </div>
+    
+    <div class="debug-section">
+        <h2>Button Test</h2>
+        <button id="test-button">Test Button (No Form)</button>
+    </div>
+    
+    <div class="debug-section">
+        <h2>Chat Simulation</h2>
+        <div id="chat-container">
+            <textarea id="chat-input" placeholder="Type a message..."></textarea>
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+    
+    <script>
+        // Event logging
+        const eventLog = document.getElementById('event-log');
+        const clearLogButton = document.getElementById('clear-log');
+        
+        function logEvent(message) {
+            const timestamp = new Date().toISOString();
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            eventLog.appendChild(logEntry);
+            eventLog.scrollTop = eventLog.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        clearLogButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            eventLog.innerHTML = '';
+            logEvent('Log cleared');
+        });
+        
+        // Form test
+        const testForm = document.getElementById('test-form');
+        const testInput = document.getElementById('test-input');
+        
+        testForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            logEvent(`Form submitted with value: "${testInput.value}"`);
+        });
+        
+        // Button test
+        const testButton = document.getElementById('test-button');
+        
+        testButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            logEvent('Test button clicked');
+        });
+        
+        // Chat simulation
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+        
+        sendButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            logEvent(`Chat message sent: "${chatInput.value}"`);
+            chatInput.value = '';
+        });
+        
+        chatInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendButton.click();
+            }
+        });
+        
+        // Global event listeners to debug redirects
+        document.addEventListener('click', function(e) {
+            logEvent(`Click event on ${e.target.tagName} element with id="${e.target.id}" class="${e.target.className}"`);
+        }, true);
+        
+        document.addEventListener('submit', function(e) {
+            logEvent(`Submit event on form with id="${e.target.id}"`);
+        }, true);
+        
+        window.addEventListener('beforeunload', function(e) {
+            logEvent('beforeunload event triggered');
+            // This won't actually log since the page is unloading
+        });
+        
+        // Log page load
+        logEvent('Debug page loaded');
+    </script>
+</body>
+</html>
