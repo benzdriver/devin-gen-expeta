@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '../App';
 
 function Dashboard({ sessionId }) {
   const [stats, setStats] = useState({
@@ -8,6 +7,17 @@ function Dashboard({ sessionId }) {
     expectations: { value: 42, change: 8 },
     generations: { value: 36, change: 15 },
     validations: { value: 87, change: 5 }
+  });
+  const [tokenStats, setTokenStats] = useState({
+    total_tokens: 0,
+    used_tokens: 0,
+    available_tokens: 0,
+    memory_usage: {
+      expectations: 0,
+      code: 0,
+      conversations: 0,
+      other: 0
+    }
   });
   const [activities, setActivities] = useState([
     {
@@ -77,22 +87,31 @@ function Dashboard({ sessionId }) {
     // 在实际实现中，这里会从后端获取仪表盘数据
     const fetchDashboardData = async () => {
       try {
-        // 示例代码，实际实现时取消注释并调整
-        /*
-        const response = await fetch(`${API_BASE_URL}/dashboard/stats`, {
+        const statsResponse = await fetch(`${API_BASE_URL}/dashboard/stats`, {
           headers: {
             'Content-Type': 'application/json',
             'Session-ID': sessionId
           }
-        });
+        }).catch(() => null);
         
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data.stats);
-          setActivities(data.activities);
-          setProjects(data.projects);
+        if (statsResponse && statsResponse.ok) {
+          const data = await statsResponse.json();
+          setStats(data.stats || stats);
+          setActivities(data.activities || activities);
+          setProjects(data.projects || projects);
         }
-        */
+        
+        const tokenResponse = await fetch(`${API_BASE_URL}/token/usage`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Session-ID': sessionId
+          }
+        }).catch(() => null);
+        
+        if (tokenResponse && tokenResponse.ok) {
+          const tokenData = await tokenResponse.json();
+          setTokenStats(tokenData);
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       }
@@ -100,6 +119,26 @@ function Dashboard({ sessionId }) {
 
     if (sessionId) {
       fetchDashboardData();
+      
+      const tokenRefreshInterval = setInterval(async () => {
+        try {
+          const tokenResponse = await fetch(`${API_BASE_URL}/token/usage`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Session-ID': sessionId
+            }
+          }).catch(() => null);
+          
+          if (tokenResponse && tokenResponse.ok) {
+            const tokenData = await tokenResponse.json();
+            setTokenStats(tokenData);
+          }
+        } catch (error) {
+          console.error('Error refreshing token data:', error);
+        }
+      }, 60000);
+      
+      return () => clearInterval(tokenRefreshInterval);
     }
   }, [sessionId]);
 
@@ -146,6 +185,110 @@ function Dashboard({ sessionId }) {
           </div>
           <div className="stat-value">{stats.validations.value}%</div>
           <div className="stat-description">较上月提升 {stats.validations.change}%</div>
+        </div>
+      </div>
+      
+      {/* Token使用统计 */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Token使用统计</h3>
+          <button 
+            className="secondary-button"
+            onClick={() => {
+              if (sessionId) {
+                fetch(`${API_BASE_URL}/token/usage`, {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Session-ID': sessionId
+                  }
+                })
+                .then(response => response.ok ? response.json() : null)
+                .then(data => data ? setTokenStats(data) : null)
+                .catch(error => console.error('Error refreshing token data:', error));
+              }
+            }}
+          >
+            <span className="material-symbols-rounded">refresh</span>
+            <span>刷新</span>
+          </button>
+        </div>
+        <div className="card-content">
+          <div className="token-stats">
+            <div className="token-usage-bar">
+              <div 
+                className="token-used" 
+                style={{ 
+                  width: `${tokenStats.total_tokens > 0 ? (tokenStats.used_tokens / tokenStats.total_tokens) * 100 : 0}%` 
+                }}
+              ></div>
+            </div>
+            <div className="token-stats-details">
+              <div className="token-stat">
+                <span className="token-label">总Token数:</span>
+                <span className="token-value">{tokenStats.total_tokens.toLocaleString()}</span>
+              </div>
+              <div className="token-stat">
+                <span className="token-label">已使用:</span>
+                <span className="token-value">{tokenStats.used_tokens.toLocaleString()}</span>
+              </div>
+              <div className="token-stat">
+                <span className="token-label">可用:</span>
+                <span className="token-value">{tokenStats.available_tokens.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+          
+          <h4 className="memory-usage-title">记忆使用分布</h4>
+          <div className="memory-usage">
+            <div className="memory-item">
+              <div className="memory-label">期望模型</div>
+              <div className="memory-bar-container">
+                <div 
+                  className="memory-bar expectations" 
+                  style={{ 
+                    width: `${tokenStats.used_tokens > 0 ? (tokenStats.memory_usage.expectations / tokenStats.used_tokens) * 100 : 0}%` 
+                  }}
+                ></div>
+              </div>
+              <div className="memory-value">{tokenStats.memory_usage.expectations.toLocaleString()}</div>
+            </div>
+            <div className="memory-item">
+              <div className="memory-label">代码生成</div>
+              <div className="memory-bar-container">
+                <div 
+                  className="memory-bar code" 
+                  style={{ 
+                    width: `${tokenStats.used_tokens > 0 ? (tokenStats.memory_usage.code / tokenStats.used_tokens) * 100 : 0}%` 
+                  }}
+                ></div>
+              </div>
+              <div className="memory-value">{tokenStats.memory_usage.code.toLocaleString()}</div>
+            </div>
+            <div className="memory-item">
+              <div className="memory-label">对话记录</div>
+              <div className="memory-bar-container">
+                <div 
+                  className="memory-bar conversations" 
+                  style={{ 
+                    width: `${tokenStats.used_tokens > 0 ? (tokenStats.memory_usage.conversations / tokenStats.used_tokens) * 100 : 0}%` 
+                  }}
+                ></div>
+              </div>
+              <div className="memory-value">{tokenStats.memory_usage.conversations.toLocaleString()}</div>
+            </div>
+            <div className="memory-item">
+              <div className="memory-label">其他</div>
+              <div className="memory-bar-container">
+                <div 
+                  className="memory-bar other" 
+                  style={{ 
+                    width: `${tokenStats.used_tokens > 0 ? (tokenStats.memory_usage.other / tokenStats.used_tokens) * 100 : 0}%` 
+                  }}
+                ></div>
+              </div>
+              <div className="memory-value">{tokenStats.memory_usage.other.toLocaleString()}</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -238,4 +381,4 @@ function Dashboard({ sessionId }) {
   );
 }
 
-export default Dashboard; 
+export default Dashboard;      
