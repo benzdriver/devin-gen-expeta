@@ -218,22 +218,22 @@ function Dashboard({ sessionId }) {
               <div 
                 className="token-used" 
                 style={{ 
-                  width: `${tokenStats.total_tokens > 0 ? (tokenStats.used_tokens / tokenStats.total_tokens) * 100 : 0}%` 
+                  width: `${tokenStats.total_tokens > 0 && tokenStats.used_tokens ? (tokenStats.used_tokens / tokenStats.total_tokens) * 100 : 0}%` 
                 }}
               ></div>
             </div>
             <div className="token-stats-details">
               <div className="token-stat">
                 <span className="token-label">总Token数:</span>
-                <span className="token-value">{tokenStats.total_tokens.toLocaleString()}</span>
+                <span className="token-value">{tokenStats.total_tokens ? tokenStats.total_tokens.toLocaleString() : '0'}</span>
               </div>
               <div className="token-stat">
                 <span className="token-label">已使用:</span>
-                <span className="token-value">{tokenStats.used_tokens.toLocaleString()}</span>
+                <span className="token-value">{tokenStats.used_tokens ? tokenStats.used_tokens.toLocaleString() : '0'}</span>
               </div>
               <div className="token-stat">
                 <span className="token-label">可用:</span>
-                <span className="token-value">{tokenStats.available_tokens.toLocaleString()}</span>
+                <span className="token-value">{tokenStats.available_tokens ? tokenStats.available_tokens.toLocaleString() : '0'}</span>
               </div>
             </div>
           </div>
@@ -246,11 +246,11 @@ function Dashboard({ sessionId }) {
                 <div 
                   className="memory-bar expectations" 
                   style={{ 
-                    width: `${tokenStats.used_tokens > 0 ? (tokenStats.memory_usage.expectations / tokenStats.used_tokens) * 100 : 0}%` 
+                    width: `${tokenStats.used_tokens > 0 && tokenStats.memory_usage?.expectations ? (tokenStats.memory_usage.expectations / tokenStats.used_tokens) * 100 : 0}%` 
                   }}
                 ></div>
               </div>
-              <div className="memory-value">{tokenStats.memory_usage.expectations.toLocaleString()}</div>
+              <div className="memory-value">{tokenStats.memory_usage?.expectations ? tokenStats.memory_usage.expectations.toLocaleString() : '0'}</div>
             </div>
             <div className="memory-item">
               <div className="memory-label">代码生成</div>
@@ -258,11 +258,11 @@ function Dashboard({ sessionId }) {
                 <div 
                   className="memory-bar code" 
                   style={{ 
-                    width: `${tokenStats.used_tokens > 0 ? (tokenStats.memory_usage.code / tokenStats.used_tokens) * 100 : 0}%` 
+                    width: `${tokenStats.used_tokens > 0 && tokenStats.memory_usage?.code ? (tokenStats.memory_usage.code / tokenStats.used_tokens) * 100 : 0}%` 
                   }}
                 ></div>
               </div>
-              <div className="memory-value">{tokenStats.memory_usage.code.toLocaleString()}</div>
+              <div className="memory-value">{tokenStats.memory_usage?.code ? tokenStats.memory_usage.code.toLocaleString() : '0'}</div>
             </div>
             <div className="memory-item">
               <div className="memory-label">对话记录</div>
@@ -270,11 +270,11 @@ function Dashboard({ sessionId }) {
                 <div 
                   className="memory-bar conversations" 
                   style={{ 
-                    width: `${tokenStats.used_tokens > 0 ? (tokenStats.memory_usage.conversations / tokenStats.used_tokens) * 100 : 0}%` 
+                    width: `${tokenStats.used_tokens > 0 && tokenStats.memory_usage?.conversations ? (tokenStats.memory_usage.conversations / tokenStats.used_tokens) * 100 : 0}%` 
                   }}
                 ></div>
               </div>
-              <div className="memory-value">{tokenStats.memory_usage.conversations.toLocaleString()}</div>
+              <div className="memory-value">{tokenStats.memory_usage?.conversations ? tokenStats.memory_usage.conversations.toLocaleString() : '0'}</div>
             </div>
             <div className="memory-item">
               <div className="memory-label">其他</div>
@@ -282,11 +282,11 @@ function Dashboard({ sessionId }) {
                 <div 
                   className="memory-bar other" 
                   style={{ 
-                    width: `${tokenStats.used_tokens > 0 ? (tokenStats.memory_usage.other / tokenStats.used_tokens) * 100 : 0}%` 
+                    width: `${tokenStats.used_tokens > 0 && tokenStats.memory_usage?.other ? (tokenStats.memory_usage.other / tokenStats.used_tokens) * 100 : 0}%` 
                   }}
                 ></div>
               </div>
-              <div className="memory-value">{tokenStats.memory_usage.other.toLocaleString()}</div>
+              <div className="memory-value">{tokenStats.memory_usage?.other ? tokenStats.memory_usage.other.toLocaleString() : '0'}</div>
             </div>
           </div>
         </div>
@@ -381,4 +381,4 @@ function Dashboard({ sessionId }) {
   );
 }
 
-export default Dashboard;      
+export default Dashboard;                    
