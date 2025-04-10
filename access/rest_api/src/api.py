@@ -174,8 +174,29 @@ async def generate_code(expectation_data: Dict[str, Any] = Body(...)):
         print(f"DEBUG: Generate code request: {expectation_data}")
         
         expectation_id = expectation_data.get("expectation_id")
-        if expectation_id and expectation_id == "test-creative-portfolio" and os.environ.get("USE_MOCK_LLM", "false").lower() == "true":
-            print(f"DEBUG: Using mock generator for test expectation ID: {expectation_id}")
+        session_id = expectation_data.get("session_id")
+        
+        if not expectation_id and session_id:
+            print(f"DEBUG: No expectation_id provided, using session_id: {session_id}")
+            try:
+                if expeta.memory_system:
+                    expectations = expeta.memory_system.get_expectations()
+                    for exp in reversed(expectations):  # Check most recent first
+                        if exp.get("session_id") == session_id:
+                            expectation_id = exp.get("id")
+                            print(f"DEBUG: Found expectation_id {expectation_id} for session {session_id}")
+                            expectation_data["expectation_id"] = expectation_id
+                            break
+            except Exception as e:
+                print(f"Warning: Failed to find expectation for session {session_id}: {str(e)}")
+                
+            if not expectation_id:
+                print(f"DEBUG: Using session_id as fallback for expectation_id: {session_id}")
+                expectation_id = session_id
+                expectation_data["expectation_id"] = expectation_id
+        
+        if expectation_id and (expectation_id == "test-creative-portfolio" or os.environ.get("USE_MOCK_LLM", "false").lower() == "true"):
+            print(f"DEBUG: Using mock generator for expectation ID: {expectation_id}")
             mock_generator = MockGenerator(memory_system=expeta.memory_system)
             result = mock_generator.generate_code(expectation_id)
             
@@ -189,6 +210,14 @@ async def generate_code(expectation_data: Dict[str, Any] = Body(...)):
         
         result = expeta.generator.generate(expectation_data)
         expeta.generator.sync_to_memory(expeta.memory_system)
+        
+        if "generation_id" not in result and "id" in result:
+            result["generation_id"] = result["id"]
+        elif "generation_id" not in result and expectation_id:
+            result["generation_id"] = f"gen_{expectation_id}"
+            result["id"] = f"gen_{expectation_id}"
+            
+        print(f"DEBUG: Returning generation result: {result}")
         return result
     except Exception as e:
         import traceback

@@ -35,7 +35,19 @@ class Generator:
         Returns:
             Dictionary with generated code and metadata
         """
-        expectation_id = expectation.get("id")
+        expectation_id = expectation.get("expectation_id") or expectation.get("id")
+        session_id = expectation.get("session_id")
+        
+        if not expectation_id and session_id:
+            print(f"DEBUG: Using session_id as expectation_id: {session_id}")
+            expectation_id = session_id
+        
+        if not expectation_id:
+            import uuid
+            expectation_id = f"generation_{uuid.uuid4().hex[:8]}"
+            print(f"DEBUG: Generated new ID for generation: {expectation_id}")
+        
+        generation_id = f"gen_{expectation_id}"
         
         if callback:
             self._generation_callbacks[expectation_id] = callback
@@ -45,7 +57,8 @@ class Generator:
             "start_time": datetime.now().isoformat(),
             "expectation": expectation,
             "partial_results": {},
-            "completed": False
+            "completed": False,
+            "generation_id": generation_id
         }
         
         try:
@@ -65,10 +78,14 @@ class Generator:
             
             result = {
                 "expectation_id": expectation_id,
+                "generation_id": generation_id,
+                "id": generation_id,  # For backward compatibility
                 "files": code.get("files", []),
                 "language": code.get("language", "unknown"),
                 "explanation": code.get("explanation", ""),
-                "generation_metadata": self._collect_metadata()
+                "generation_metadata": self._collect_metadata(),
+                "status": "completed",
+                "progress": 100
             }
             
             self._active_generations[expectation_id]["completed"] = True
@@ -290,45 +307,7 @@ class Generator:
         """
         prompt = self._create_code_generation_prompt(key_concepts, constraints)
         
-        if expectation_id:
-            partial_code = {"files": [], "language": "unknown", "explanation": ""}
-            
-            def stream_callback(chunk):
-                nonlocal partial_code
-                try:
-                    content = chunk.get("content", "")
-                    import re
-                    code_blocks = re.findall(r"```(\w+)\s+(.*?)```", content, re.DOTALL)
-                    
-                    if code_blocks:
-                        for language, code in code_blocks:
-                            partial_code["language"] = language
-                            file_exists = False
-                            
-                            for file in partial_code["files"]:
-                                if code in file["content"]:
-                                    file_exists = True
-                                    break
-                                    
-                            if not file_exists:
-                                file_path = f"file{len(partial_code['files'])+1}.{language}"
-                                partial_code["files"].append({
-                                    "path": file_path,
-                                    "content": code
-                                })
-                                
-                        if expectation_id:
-                            self._update_generation_status(
-                                expectation_id, 
-                                "generating_code", 
-                                f"Generated {len(partial_code['files'])} files so far..."
-                            )
-                except Exception as e:
-                    print(f"Error processing streaming chunk: {str(e)}")
-                    
-            response = self.llm_router.generate(prompt, {"temperature": 0.2, "stream": True}, stream_callback)
-        else:
-            response = self.llm_router.generate(prompt, {"temperature": 0.2})
+        response = self.llm_router.generate(prompt, {"temperature": 0.2})
         
         code = self._parse_code_from_response(response)
         

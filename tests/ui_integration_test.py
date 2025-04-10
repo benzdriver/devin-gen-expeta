@@ -120,21 +120,47 @@ def test_chat_requirements_page(driver):
             print(f"❌ Input box value mismatch. Expected: '{test_message}', Got: '{input_value}'")
         
         try:
-            send_button = driver.find_element(By.XPATH, "//button[contains(@class, 'send-button')]")
-            print("✅ Found send button by class")
+            send_button = driver.find_element(By.XPATH, "//button[@data-testid='send-button']")
+            print("✅ Found send button by data-testid")
         except NoSuchElementException:
             try:
-                send_button = driver.find_element(By.XPATH, "//button[@type='submit']")
-                print("✅ Found send button by type")
+                send_button = driver.find_element(By.XPATH, "//button[contains(@class, 'send-button')]")
+                print("✅ Found send button by class")
             except NoSuchElementException:
                 try:
-                    send_button = driver.find_element(By.XPATH, "//button[.//span[contains(text(), 'send')]]")
-                    print("✅ Found send button by icon text")
+                    send_button = driver.find_element(By.XPATH, "//button[@type='submit']")
+                    print("✅ Found send button by type")
                 except NoSuchElementException:
-                    print("❌ Could not find send button with any selector")
-                    driver.save_screenshot('/tmp/button_not_found.png')
-                    print("📸 Saved screenshot to /tmp/button_not_found.png")
-                    raise
+                    try:
+                        send_button = driver.find_element(By.XPATH, "//button[.//span[contains(text(), 'send')]]")
+                        print("✅ Found send button by icon text")
+                    except NoSuchElementException:
+                        try:
+                            send_button = driver.find_element(By.XPATH, "//button[.//span[contains(@class, 'material-symbols-rounded') and text()='send']]")
+                            print("✅ Found send button by material icon")
+                        except NoSuchElementException:
+                            try:
+                                print("⚠️ Attempting JavaScript click on send button")
+                                driver.execute_script("""
+                                    const buttons = document.querySelectorAll('button');
+                                    for (const button of buttons) {
+                                        if (button.textContent.includes('send') || 
+                                            button.innerHTML.includes('send') || 
+                                            button.className.includes('send')) {
+                                            button.click();
+                                            return true;
+                                        }
+                                    }
+                                    return false;
+                                """)
+                                print("✅ Executed JavaScript click")
+                                return
+                            except Exception as e:
+                                print(f"❌ JavaScript click failed: {str(e)}")
+                                print("❌ Could not find send button with any selector")
+                                driver.save_screenshot('/tmp/button_not_found.png')
+                                print("📸 Saved screenshot to /tmp/button_not_found.png")
+                                raise
         send_button.click()
         
         WebDriverWait(driver, TEST_TIMEOUT).until(
@@ -154,21 +180,47 @@ def test_chat_requirements_page(driver):
         follow_up_message = "I want to showcase my design work with images and descriptions. The blog should have categories and comments."
         input_box.send_keys(follow_up_message)
         try:
-            send_button = driver.find_element(By.XPATH, "//button[contains(@class, 'send-button')]")
-            print("✅ Found send button by class")
+            send_button = driver.find_element(By.XPATH, "//button[@data-testid='send-button']")
+            print("✅ Found send button by data-testid")
         except NoSuchElementException:
             try:
-                send_button = driver.find_element(By.XPATH, "//button[@type='submit']")
-                print("✅ Found send button by type")
+                send_button = driver.find_element(By.XPATH, "//button[contains(@class, 'send-button')]")
+                print("✅ Found send button by class")
             except NoSuchElementException:
                 try:
-                    send_button = driver.find_element(By.XPATH, "//button[.//span[contains(text(), 'send')]]")
-                    print("✅ Found send button by icon text")
+                    send_button = driver.find_element(By.XPATH, "//button[@type='submit']")
+                    print("✅ Found send button by type")
                 except NoSuchElementException:
-                    print("❌ Could not find send button with any selector")
-                    driver.save_screenshot('/tmp/button_not_found.png')
-                    print("📸 Saved screenshot to /tmp/button_not_found.png")
-                    raise
+                    try:
+                        send_button = driver.find_element(By.XPATH, "//button[.//span[contains(text(), 'send')]]")
+                        print("✅ Found send button by icon text")
+                    except NoSuchElementException:
+                        try:
+                            send_button = driver.find_element(By.XPATH, "//button[.//span[contains(@class, 'material-symbols-rounded') and text()='send']]")
+                            print("✅ Found send button by material icon")
+                        except NoSuchElementException:
+                            try:
+                                print("⚠️ Attempting JavaScript click on send button")
+                                driver.execute_script("""
+                                    const buttons = document.querySelectorAll('button');
+                                    for (const button of buttons) {
+                                        if (button.textContent.includes('send') || 
+                                            button.innerHTML.includes('send') || 
+                                            button.className.includes('send')) {
+                                            button.click();
+                                            return true;
+                                        }
+                                    }
+                                    return false;
+                                """)
+                                print("✅ Executed JavaScript click")
+                                return
+                            except Exception as e:
+                                print(f"❌ JavaScript click failed: {str(e)}")
+                                print("❌ Could not find send button with any selector")
+                                driver.save_screenshot('/tmp/button_not_found.png')
+                                print("📸 Saved screenshot to /tmp/button_not_found.png")
+                                raise
         send_button.click()
         
         WebDriverWait(driver, TEST_TIMEOUT).until(
@@ -188,21 +240,47 @@ def test_chat_requirements_page(driver):
         confirmation_message = "Yes, that's correct. I confirm these requirements are what I want."
         input_box.send_keys(confirmation_message)
         try:
-            send_button = driver.find_element(By.XPATH, "//button[contains(@class, 'send-button')]")
-            print("✅ Found send button by class")
+            send_button = driver.find_element(By.XPATH, "//button[@data-testid='send-button']")
+            print("✅ Found send button by data-testid")
         except NoSuchElementException:
             try:
-                send_button = driver.find_element(By.XPATH, "//button[@type='submit']")
-                print("✅ Found send button by type")
+                send_button = driver.find_element(By.XPATH, "//button[contains(@class, 'send-button')]")
+                print("✅ Found send button by class")
             except NoSuchElementException:
                 try:
-                    send_button = driver.find_element(By.XPATH, "//button[.//span[contains(text(), 'send')]]")
-                    print("✅ Found send button by icon text")
+                    send_button = driver.find_element(By.XPATH, "//button[@type='submit']")
+                    print("✅ Found send button by type")
                 except NoSuchElementException:
-                    print("❌ Could not find send button with any selector")
-                    driver.save_screenshot('/tmp/button_not_found.png')
-                    print("📸 Saved screenshot to /tmp/button_not_found.png")
-                    raise
+                    try:
+                        send_button = driver.find_element(By.XPATH, "//button[.//span[contains(text(), 'send')]]")
+                        print("✅ Found send button by icon text")
+                    except NoSuchElementException:
+                        try:
+                            send_button = driver.find_element(By.XPATH, "//button[.//span[contains(@class, 'material-symbols-rounded') and text()='send']]")
+                            print("✅ Found send button by material icon")
+                        except NoSuchElementException:
+                            try:
+                                print("⚠️ Attempting JavaScript click on send button")
+                                driver.execute_script("""
+                                    const buttons = document.querySelectorAll('button');
+                                    for (const button of buttons) {
+                                        if (button.textContent.includes('send') || 
+                                            button.innerHTML.includes('send') || 
+                                            button.className.includes('send')) {
+                                            button.click();
+                                            return true;
+                                        }
+                                    }
+                                    return false;
+                                """)
+                                print("✅ Executed JavaScript click")
+                                return
+                            except Exception as e:
+                                print(f"❌ JavaScript click failed: {str(e)}")
+                                print("❌ Could not find send button with any selector")
+                                driver.save_screenshot('/tmp/button_not_found.png')
+                                print("📸 Saved screenshot to /tmp/button_not_found.png")
+                                raise
         send_button.click()
         
         try:

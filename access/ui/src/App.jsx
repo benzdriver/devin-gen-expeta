@@ -4,6 +4,14 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
 import Requirements from './pages/Requirements';
+import SimpleRequirements from './pages/SimpleRequirements';
+import NativeRequirements from './pages/NativeRequirements';
+import ChatRequirements from './pages/ChatRequirements';
+import EnhancedChatRequirements from './pages/EnhancedChatRequirements';
+import SimpleChat from './pages/SimpleChat';
+import DirectChat from './pages/DirectChat';
+import BasicChat from './pages/BasicChat';
+import TestForm from './pages/TestForm';
 import Expectations from './pages/Expectations';
 import CodeGeneration from './pages/CodeGeneration';
 import Validation from './pages/Validation';
@@ -78,13 +86,21 @@ function App() {
         <div id={activePage} className="content-area page">
           <Routes>
             <Route path="/" element={<Dashboard sessionId={sessionId} />} />
-            <Route path="/requirements" element={<Requirements sessionId={sessionId} />} />
+            <Route path="/requirements" element={<ChatRequirements sessionId={sessionId} />} />
+            <Route path="/simple-requirements" element={<SimpleRequirements />} />
+            <Route path="/native-requirements" element={<NativeRequirements sessionId={sessionId} />} />
+            <Route path="/old-requirements" element={<Requirements sessionId={sessionId} />} />
+            <Route path="/chat-requirements" element={<EnhancedChatRequirements sessionId={sessionId} />} />
+            <Route path="/simple-chat" element={<SimpleChat />} />
+            <Route path="/direct-chat" element={<DirectChat />} />
+            <Route path="/basic-chat" element={<BasicChat />} />
             <Route path="/expectations" element={<Expectations sessionId={sessionId} />} />
             <Route path="/code-generation" element={<CodeGeneration sessionId={sessionId} />} />
             <Route path="/validation" element={<Validation sessionId={sessionId} />} />
             <Route path="/memory" element={<Memory sessionId={sessionId} />} />
             <Route path="/semantic-mediator" element={<SemanticMediator sessionId={sessionId} />} />
             <Route path="/settings" element={<Settings userData={userData} setUserData={setUserData} />} />
+            <Route path="/test-form" element={<TestForm />} />
           </Routes>
         </div>
       </main>
@@ -96,6 +112,7 @@ function getPageTitle(page) {
   switch (page) {
     case 'dashboard': return '仪表盘';
     case 'requirements': return '需求管理';
+    case 'native-requirements': return '统一需求对话';
     case 'expectations': return '期望管理';
     case 'code-generation': return '代码生成';
     case 'validation': return '验证结果';
@@ -106,4 +123,4 @@ function getPageTitle(page) {
   }
 }
 
-export default App;  
+export default App;                                      
