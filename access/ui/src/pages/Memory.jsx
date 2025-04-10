@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '../App';
 
 function Memory({ sessionId }) {
   const [memories, setMemories] = useState([]);
@@ -26,7 +25,7 @@ function Memory({ sessionId }) {
     setError(null);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/memory/${category}`, {
+      const response = await fetch(`${API_BASE_URL}/memory/expectations`, {
         headers: {
           'Content-Type': 'application/json',
           'Session-ID': sessionId
@@ -35,10 +34,20 @@ function Memory({ sessionId }) {
       
       if (response.ok) {
         const data = await response.json();
-        setMemories(data.items || []);
-        if (data.items && data.items.length > 0) {
-          setSelectedMemory(data.items[0]);
-          fetchMemoryDetail(data.items[0].id);
+        const expectationsArray = data.expectations || [];
+        
+        const memoryItems = expectationsArray.map(exp => ({
+          id: exp.id,
+          title: exp.title || exp.name || exp.id,
+          preview: exp.description || 'No description available',
+          date: exp.created_at || new Date().toISOString(),
+          type: 'expectation'
+        }));
+        
+        setMemories(memoryItems);
+        if (memoryItems.length > 0) {
+          setSelectedMemory(memoryItems[0]);
+          fetchMemoryDetail(memoryItems[0].id);
         } else {
           setSelectedMemory(null);
           setMemoryDetail(null);
@@ -60,7 +69,7 @@ function Memory({ sessionId }) {
     if (!sessionId || !memoryId) return;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/memory/detail/${memoryId}`, {
+      const response = await fetch(`${API_BASE_URL}/memory/expectation/${memoryId}`, {
         headers: {
           'Content-Type': 'application/json',
           'Session-ID': sessionId
@@ -69,7 +78,16 @@ function Memory({ sessionId }) {
       
       if (response.ok) {
         const data = await response.json();
-        setMemoryDetail(data);
+        const detailData = {
+          id: data.id,
+          title: data.title || data.name || data.id,
+          description: data.description || 'No description available',
+          last_updated: data.updated_at || data.created_at || new Date().toISOString(),
+          sub_expectations: data.sub_expectations || [],
+          constraints: data.constraints || [],
+          related_memories: []
+        };
+        setMemoryDetail(detailData);
       } else {
         console.error('Failed to fetch memory detail');
       }
@@ -80,12 +98,239 @@ function Memory({ sessionId }) {
   
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
-    fetchMemories(category);
+    
+    if (category === 'expectation') {
+      fetchMemories('expectations');
+    } else if (category === 'code') {
+      fetchCodeGenerations();
+    } else if (category === 'validation') {
+      fetchValidations();
+    } else if (category === 'clarification') {
+      fetchClarifications();
+    }
+  };
+  
+  const fetchCodeGenerations = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/memory/expectations`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Session-ID': sessionId
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const expectationsArray = data.expectations || [];
+        
+        const generationsPromises = expectationsArray.map(async (exp) => {
+          try {
+            const genResponse = await fetch(`${API_BASE_URL}/memory/generations/${exp.id}`, {
+              headers: {
+                'Content-Type': 'application/json',
+                'Session-ID': sessionId
+              }
+            });
+            
+            if (genResponse.ok) {
+              const genData = await genResponse.json();
+              return {
+                id: exp.id,
+                title: `Code for ${exp.title || exp.name || exp.id}`,
+                preview: `Generated code with ${genData.files?.length || 0} files`,
+                date: genData.created_at || new Date().toISOString(),
+                type: 'code',
+                generation: genData
+              };
+            }
+            return null;
+          } catch (error) {
+            console.error(`Error fetching generation for ${exp.id}:`, error);
+            return null;
+          }
+        });
+        
+        const generations = (await Promise.all(generationsPromises)).filter(Boolean);
+        
+        setMemories(generations);
+        if (generations.length > 0) {
+          setSelectedMemory(generations[0]);
+          setMemoryDetail({
+            ...generations[0],
+            description: `Generated code for expectation ${generations[0].id}`,
+            files: generations[0].generation?.files || []
+          });
+        } else {
+          setSelectedMemory(null);
+          setMemoryDetail(null);
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || '获取代码生成数据失败');
+      }
+    } catch (error) {
+      console.error('Error fetching code generations:', error);
+      setError('网络错误，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchValidations = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/memory/expectations`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Session-ID': sessionId
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const expectationsArray = data.expectations || [];
+        
+        const validationsPromises = expectationsArray.map(async (exp) => {
+          try {
+            const valResponse = await fetch(`${API_BASE_URL}/memory/validations/${exp.id}`, {
+              headers: {
+                'Content-Type': 'application/json',
+                'Session-ID': sessionId
+              }
+            });
+            
+            if (valResponse.ok) {
+              const valData = await valResponse.json();
+              return {
+                id: exp.id,
+                title: `Validation for ${exp.title || exp.name || exp.id}`,
+                preview: `Validation ${valData.passed ? 'passed' : 'failed'}`,
+                date: valData.created_at || new Date().toISOString(),
+                type: 'validation',
+                validation: valData
+              };
+            }
+            return null;
+          } catch (error) {
+            console.error(`Error fetching validation for ${exp.id}:`, error);
+            return null;
+          }
+        });
+        
+        const validations = (await Promise.all(validationsPromises)).filter(Boolean);
+        
+        setMemories(validations);
+        if (validations.length > 0) {
+          setSelectedMemory(validations[0]);
+          setMemoryDetail({
+            ...validations[0],
+            description: `Validation results for expectation ${validations[0].id}`,
+            passed: validations[0].validation?.passed,
+            semantic_match: validations[0].validation?.semantic_match,
+            test_results: validations[0].validation?.test_results
+          });
+        } else {
+          setSelectedMemory(null);
+          setMemoryDetail(null);
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || '获取验证结果失败');
+      }
+    } catch (error) {
+      console.error('Error fetching validations:', error);
+      setError('网络错误，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchClarifications = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/clarify/conversations`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Session-ID': sessionId
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const conversationsArray = data.conversations || [];
+        
+        const clarificationItems = conversationsArray.map(conv => ({
+          id: conv.id,
+          title: `Conversation ${conv.id}`,
+          preview: `Stage: ${conv.stage}`,
+          date: new Date().toISOString(),
+          type: 'clarification',
+          conversation: conv
+        }));
+        
+        setMemories(clarificationItems);
+        if (clarificationItems.length > 0) {
+          setSelectedMemory(clarificationItems[0]);
+          setMemoryDetail({
+            ...clarificationItems[0],
+            description: `Clarification conversation ${clarificationItems[0].id}`,
+            messages: clarificationItems[0].conversation?.previous_messages || [],
+            stage: clarificationItems[0].conversation?.stage,
+            current_expectation: clarificationItems[0].conversation?.current_expectation
+          });
+        } else {
+          setSelectedMemory(null);
+          setMemoryDetail(null);
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || '获取澄清对话失败');
+      }
+    } catch (error) {
+      console.error('Error fetching clarifications:', error);
+      setError('网络错误，请重试');
+    } finally {
+      setLoading(false);
+    }
   };
   
   const handleMemoryClick = (memory) => {
     setSelectedMemory(memory);
-    fetchMemoryDetail(memory.id);
+    
+    if (memory.type === 'expectation') {
+      fetchMemoryDetail(memory.id);
+    } else if (memory.type === 'code' && memory.generation) {
+      setMemoryDetail({
+        ...memory,
+        description: `Generated code for expectation ${memory.id}`,
+        files: memory.generation?.files || []
+      });
+    } else if (memory.type === 'validation' && memory.validation) {
+      setMemoryDetail({
+        ...memory,
+        description: `Validation results for expectation ${memory.id}`,
+        passed: memory.validation?.passed,
+        semantic_match: memory.validation?.semantic_match,
+        test_results: memory.validation?.test_results
+      });
+    } else if (memory.type === 'clarification' && memory.conversation) {
+      setMemoryDetail({
+        ...memory,
+        description: `Clarification conversation ${memory.id}`,
+        messages: memory.conversation?.previous_messages || [],
+        stage: memory.conversation?.stage,
+        current_expectation: memory.conversation?.current_expectation
+      });
+    } else {
+      fetchMemoryDetail(memory.id);
+    }
   };
   
   const handleSearchChange = (e) => {
@@ -110,45 +355,31 @@ function Memory({ sessionId }) {
   const handleEditMemory = async () => {
     if (!selectedMemory) return;
     
-    console.log('Edit memory:', selectedMemory.id);
-    // 实际编辑功能将在这里实现
-    // 在实际应用中，这里会跳转到编辑页面或打开编辑对话框
+    if (selectedMemory.type === 'expectation') {
+      window.location.href = `/expectations?expectation_id=${selectedMemory.id}`;
+    } else if (selectedMemory.type === 'code') {
+      window.location.href = `/code-generation?expectation_id=${selectedMemory.id}`;
+    } else if (selectedMemory.type === 'validation') {
+      window.location.href = `/validation?expectation_id=${selectedMemory.id}`;
+    } else if (selectedMemory.type === 'clarification') {
+      window.location.href = `/requirements?conversation_id=${selectedMemory.id}`;
+    }
   };
   
   const handleDeleteMemory = async () => {
     if (!selectedMemory || !sessionId) return;
     
-    if (window.confirm(`确定要删除"${selectedMemory.title}"吗？`)) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/memory/${selectedMemory.id}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Session-ID': sessionId
-          }
-        });
-        
-        if (response.ok) {
-          // 从列表中移除已删除的记忆
-          const updatedMemories = memories.filter(memory => memory.id !== selectedMemory.id);
-          setMemories(updatedMemories);
-          
-          // 选择新的记忆项（如果有）
-          if (updatedMemories.length > 0) {
-            setSelectedMemory(updatedMemories[0]);
-            fetchMemoryDetail(updatedMemories[0].id);
-          } else {
-            setSelectedMemory(null);
-            setMemoryDetail(null);
-          }
-        } else {
-          const errorData = await response.json();
-          alert(errorData.error || '删除失败');
-        }
-      } catch (error) {
-        console.error('Error deleting memory:', error);
-        alert('删除过程中发生错误');
-      }
+    alert('删除功能尚未实现');
+    
+    const updatedMemories = memories.filter(memory => memory.id !== selectedMemory.id);
+    setMemories(updatedMemories);
+    
+    if (updatedMemories.length > 0) {
+      setSelectedMemory(updatedMemories[0]);
+      fetchMemoryDetail(updatedMemories[0].id);
+    } else {
+      setSelectedMemory(null);
+      setMemoryDetail(null);
     }
   };
 
@@ -325,4 +556,4 @@ function Memory({ sessionId }) {
   );
 }
 
-export default Memory; 
+export default Memory;                

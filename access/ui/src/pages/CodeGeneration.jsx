@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '../App';
 
 function CodeGeneration({ sessionId }) {
   const [expectation, setExpectation] = useState(null);
@@ -392,4 +391,4 @@ function CodeGeneration({ sessionId }) {
   );
 }
 
-export default CodeGeneration;  
+export default CodeGeneration;    

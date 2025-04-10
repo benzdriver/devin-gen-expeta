@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '../App';
 
 function Expectations({ sessionId }) {
   const [expectations, setExpectations] = useState([]);
@@ -29,10 +28,11 @@ function Expectations({ sessionId }) {
         
         if (response.ok) {
           const data = await response.json();
-          setExpectations(data);
-          if (data.length > 0) {
+          const expectationsArray = data.expectations || [];
+          setExpectations(expectationsArray);
+          if (expectationsArray.length > 0) {
             // Select the first expectation automatically
-            await fetchExpectationDetails(data[0].id);
+            await fetchExpectationDetails(expectationsArray[0].id);
           } else {
             setLoading(false);
           }
@@ -324,4 +324,4 @@ function Expectations({ sessionId }) {
   );
 }
 
-export default Expectations;      
+export default Expectations;          
