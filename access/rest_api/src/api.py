@@ -369,14 +369,15 @@ class ChatSessionResponse(BaseModel):
 async def create_chat_session(request: ChatSessionRequest):
     """Create or continue a chat session"""
     try:
-        session_id = request.session_id or f"session_{import_time().replace(':', '-').replace('.', '-')}"
+        session_id = request.session_id or f"session_{uuid.uuid4().hex[:8]}"
         
-        return {
-            "session_id": session_id,
-            "messages": [
+        if not request.session_id:
+            result = expeta.clarifier.clarify_requirement(request.user_message, session_id)
+            
+            messages = [
                 {
                     "role": "assistant",
-                    "content": "Hello! I'm Expeta, your product manager. How can I help you build software today?",
+                    "content": "欢迎使用Expeta 2.0! 我是您的需求分析助手。请告诉我您想要构建的系统或功能，我会帮您澄清需求并生成期望模型。",
                     "timestamp": import_time()
                 },
                 {
@@ -386,13 +387,31 @@ async def create_chat_session(request: ChatSessionRequest):
                 },
                 {
                     "role": "assistant",
-                    "content": "I understand you want to build something. Let me help clarify your requirements. Could you tell me more about what features you need?",
+                    "content": result.get("response", "我需要更多信息来理解您的需求。请提供更多细节。"),
                     "timestamp": import_time()
                 }
-            ],
-            "status": "clarifying",
-            "token_usage": expeta.token_tracker.get_summary() if hasattr(expeta, "token_tracker") else None
-        }
+            ]
+            
+            status = "clarifying" if result.get("requires_clarification", True) else "completed"
+            
+            return {
+                "session_id": session_id,
+                "messages": messages,
+                "status": status,
+                "expectation": result.get("result"),
+                "response": result.get("response"),
+                "token_usage": expeta.token_tracker.get_summary() if hasattr(expeta, "token_tracker") else None
+            }
+        else:
+            result = expeta.clarifier.continue_conversation(session_id, request.user_message)
+            
+            return {
+                "session_id": session_id,
+                "response": result.get("response", "我已理解您的需求，并更新了期望模型。"),
+                "status": result.get("stage", "clarifying"),
+                "expectation": result.get("result"),
+                "token_usage": expeta.token_tracker.get_summary() if hasattr(expeta, "token_tracker") else None
+            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

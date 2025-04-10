@@ -616,9 +616,20 @@ class Clarifier:
             Response text with follow-up questions
         """
         if not uncertainty_points:
-            return "I have all the information I need. Let me finalize the expectation."
+            return "我已经收集到足够的信息，可以为您生成期望模型了。"
             
-        response = "I need some clarification to better understand your requirement:\n\n"
+        response = "作为您的产品经理，我需要更深入地了解您的需求，以便为您提供最佳的解决方案。\n\n"
+        
+        has_industry_question = False
+        for point in uncertainty_points:
+            if point.get("field") == "industry" or "industry" in point.get("question", "").lower():
+                has_industry_question = True
+                break
+                
+        if not has_industry_question:
+            response += "首先，请告诉我这个项目属于哪个行业或领域？了解行业背景将帮助我提供更相关的建议和参考。\n\n"
+        
+        response += "请帮我澄清以下几点：\n\n"
         
         for i, point in enumerate(uncertainty_points):
             question = point.get("question")
@@ -627,21 +638,24 @@ class Clarifier:
                 issue = point.get("issue", "unclear")
                 
                 if field == "name":
-                    question = "Could you provide a more specific name for this requirement?"
+                    question = "您能为这个需求提供一个更具体的名称吗？这将帮助我们更清晰地定义项目范围。"
                 elif field == "description":
                     if issue == "vague_term":
                         term = point.get("term", "")
-                        question = f"You mentioned '{term}' in the description. Could you be more specific about what this includes?"
+                        question = f"您提到了'{term}'，能否详细说明这包括哪些具体功能或特性？在类似的系统中，这通常如何实现？"
                     else:
-                        question = "Could you provide a more detailed description of what you need?"
+                        question = "能否更详细地描述您期望的功能和用户体验？如果有类似的产品或网站可以参考，请告诉我。"
                 elif field == "acceptance_criteria":
-                    question = "What specific criteria would indicate that this requirement has been successfully implemented?"
+                    question = "在您看来，什么样的标准可以表明这个需求已经被成功实现了？用户应该能够完成哪些操作？"
                 elif field == "constraints":
-                    question = "Are there any constraints or limitations that should be considered for this requirement?"
+                    question = "您对这个项目有哪些限制条件或特殊要求？比如性能要求、兼容性、安全性等方面的考虑。"
                 else:
-                    question = "Could you provide more details about this requirement?"
+                    question = "能否提供更多关于这个需求的细节？特别是您期望用户如何与系统交互的场景。"
                     
-            response += f"{i+1}. {question}\n"
+            response += f"{i+1}. {question}\n\n"
+        
+        response += "此外，您是否了解行业内类似的解决方案？它们有哪些值得借鉴的地方，或者有哪些不足之处需要我们改进？\n\n"
+        response += "您的详细反馈将帮助我更准确地理解您的需求，并设计出最符合您期望的解决方案。"
             
         return response
         
@@ -735,29 +749,43 @@ class Clarifier:
         Returns:
             Response text
         """
-        response = f"I've finalized your requirement into the following expectation:\n\n"
+        response = f"我已理解您的需求，并将其转化为以下期望模型。以下是我对您需求的理解：\n\n"
         response += f"**{expectation.get('name', 'Expectation')}**\n"
         response += f"{expectation.get('description', '')}\n\n"
         
+        response += "根据您的描述，我理解您需要的是：\n"
+        response += f"1. 一个{expectation.get('name', '系统')}，其主要功能是{expectation.get('description', '满足您的需求')}。\n"
+        response += "2. 该系统应该满足以下关键点：\n"
+        
         if expectation.get("acceptance_criteria"):
-            response += "Acceptance Criteria:\n"
-            for criterion in expectation.get("acceptance_criteria", []):
-                response += f"- {criterion}\n"
-            response += "\n"
-            
+            for i, criterion in enumerate(expectation.get("acceptance_criteria", [])):
+                response += f"   - {criterion}\n"
+        
         if expectation.get("constraints"):
-            response += "Constraints:\n"
+            response += "\n系统需要遵循的约束条件：\n"
             for constraint in expectation.get("constraints", []):
                 response += f"- {constraint}\n"
             response += "\n"
-            
+        
+        if "industry" in expectation or "domain" in expectation:
+            industry = expectation.get("industry", expectation.get("domain", ""))
+            response += f"\n在{industry}行业中，类似的系统通常具有以下特点：\n"
+            response += "- 用户友好的界面设计\n"
+            response += "- 安全可靠的数据处理\n"
+            response += "- 高效的性能和响应速度\n\n"
+        
         if sub_expectations:
-            response += "I've also broken this down into sub-expectations:\n\n"
+            response += "为了实现这个系统，我将其分解为以下子期望：\n\n"
             for i, sub in enumerate(sub_expectations):
-                response += f"{i+1}. **{sub.get('name', f'Sub-Expectation {i+1}')}**\n"
+                response += f"{i+1}. **{sub.get('name', f'子期望 {i+1}')}**\n"
                 response += f"   {sub.get('description', '')}\n"
-                
-        response += "\nWould you like me to generate code for this expectation?"
+                if sub.get("acceptance_criteria"):
+                    response += "   验收标准：\n"
+                    for criterion in sub.get("acceptance_criteria", []):
+                        response += f"   - {criterion}\n"
+                response += "\n"
+        
+        response += "请确认这是否符合您的需求？如果有任何需要调整的地方，请告诉我。如果确认无误，我可以为您生成相应的代码。"
         
         return response
         
@@ -772,20 +800,30 @@ class Clarifier:
             Response text
         """
         prompt = f"""
-        You are an AI assistant helping with software requirements. The user has already completed
+        You are a product manager helping with software requirements. The user has already completed
         the clarification process for the following expectation, but has sent a new message.
         
         Expectation:
         Name: {expectation.get('name', 'No name provided')}
         Description: {expectation.get('description', 'No description provided')}
+        Acceptance Criteria: {', '.join(expectation.get('acceptance_criteria', []))}
+        Constraints: {', '.join(expectation.get('constraints', []))}
         
         User's new message:
         {user_message}
         
-        Respond helpfully to the user's message in the context of this expectation.
-        If they're asking for changes to the expectation, explain that they can start
-        a new clarification process or provide specific updates they want to make.
+        Respond as a helpful product manager to the user's message in the context of this expectation.
+        Be conversational and professional. If they're asking for changes to the expectation, 
+        acknowledge their request and explain how you'll incorporate these changes.
+        
+        Your response should:
+        1. Acknowledge their message
+        2. Provide industry-relevant context if applicable
+        3. Offer next steps (code generation, expectation modification, etc.)
+        4. Ask if they want to proceed with these steps
+        
+        Write your response in Chinese.
         """
         
         response = self.llm_router.generate(prompt)
-        return response.get("content", "I understand. What would you like to do next with this expectation?")
+        return response.get("content", "我理解您的需求。您希望对这个期望模型做什么调整，或者您想要直接生成代码？请告诉我您的下一步计划。")

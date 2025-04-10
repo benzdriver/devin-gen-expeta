@@ -110,12 +110,15 @@ function Requirements({ sessionId }) {
         // 更新期望数据
         if (data.expectation) {
           setExpectationData(data.expectation);
+          
+          if (data.status === 'completed') {
+            setActiveStep(3);
+          }
         }
         
-        // 添加系统回复
         const systemMessage = {
           role: 'system',
-          content: data.response || '我已理解您的需求，并更新了期望模型。',
+          content: data.response || '我需要更多信息来理解您的需求。请提供更多细节。',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         setChatMessages(prev => [...prev, systemMessage]);
@@ -451,4 +454,4 @@ function Requirements({ sessionId }) {
   );
 }
 
-export default Requirements;    
+export default Requirements;      
