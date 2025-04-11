@@ -21,16 +21,15 @@ function CodeGeneration({ sessionId }) {
   };
   
   const handleLoadExpectation = async () => {
-    if (!sessionId || !expectationId.trim()) return;
+    if (!expectationId.trim()) return;
     
     try {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_BASE_URL}/memory/expectation/${expectationId}`, {
+      const response = await fetch(`${API_BASE_URL}/memory/expectations/${expectationId}`, {
         headers: {
-          'Content-Type': 'application/json',
-          'Session-ID': sessionId
+          'Content-Type': 'application/json'
         }
       });
       
@@ -57,26 +56,36 @@ function CodeGeneration({ sessionId }) {
   };
   
   const handleGenerateCode = async () => {
-    if (!sessionId || !expectation) return;
+    console.log('handleGenerateCode called, expectation:', expectation);
+    if (!expectation) {
+      console.log('No expectation loaded, cannot generate code');
+      return;
+    }
     
     setIsGenerating(true);
     setError(null);
     
     try {
+      console.log('Sending code generation request with options:', genOptions);
+      const requestBody = {
+        expectation_id: expectation.id,
+        options: genOptions
+      };
+      console.log('Request body:', JSON.stringify(requestBody));
+      
       const response = await fetch(`${API_BASE_URL}/generate`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Session-ID': sessionId
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          expectation_id: expectation.id,
-          options: genOptions
-        })
+        body: JSON.stringify(requestBody)
       });
+      
+      console.log('Code generation API response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Code generation API response data:', data);
         setGeneratedCode(data);
         if (data && data.files && data.files.length > 0) {
           setActiveFile(data.files[0]);
@@ -126,7 +135,7 @@ function CodeGeneration({ sessionId }) {
     // If URL contains expectation_id parameter, load it automatically
     const queryParams = new URLSearchParams(window.location.search);
     const expId = queryParams.get('expectation_id');
-    if (expId && sessionId) {
+    if (expId) {
       setExpectationId(expId);
       
       // Fetch expectation data
@@ -134,10 +143,9 @@ function CodeGeneration({ sessionId }) {
         try {
           setLoading(true);
           
-          const response = await fetch(`${API_BASE_URL}/memory/expectation/${expId}`, {
+          const response = await fetch(`${API_BASE_URL}/memory/expectations/${expId}`, {
             headers: {
-              'Content-Type': 'application/json',
-              'Session-ID': sessionId
+              'Content-Type': 'application/json'
             }
           });
           
@@ -148,8 +156,7 @@ function CodeGeneration({ sessionId }) {
             // Check if code was already generated for this expectation
             const codeResponse = await fetch(`${API_BASE_URL}/memory/generations/${expId}`, {
               headers: {
-                'Content-Type': 'application/json',
-                'Session-ID': sessionId
+                'Content-Type': 'application/json'
               }
             });
             
@@ -172,7 +179,7 @@ function CodeGeneration({ sessionId }) {
       
       fetchExpectation();
     }
-  }, [sessionId]);
+  }, []);
   
   return (
     <div className="code-generation-container">
@@ -190,7 +197,10 @@ function CodeGeneration({ sessionId }) {
               />
               <button 
                 className="primary-button" 
-                onClick={handleLoadExpectation}
+                onClick={() => {
+                  console.log('Load button clicked, calling handleLoadExpectation');
+                  handleLoadExpectation();
+                }}
                 disabled={loading || !expectationId.trim()}
               >
                 加载
@@ -310,7 +320,10 @@ function CodeGeneration({ sessionId }) {
             <div className="generation-actions">
               <button 
                 className="primary-button" 
-                onClick={handleGenerateCode}
+                onClick={() => {
+                  console.log('Generate code button clicked');
+                  handleGenerateCode();
+                }}
                 disabled={isGenerating}
               >
                 {isGenerating ? (
@@ -338,6 +351,15 @@ function CodeGeneration({ sessionId }) {
               <button className="secondary-button" onClick={handleDownloadAll}>
                 <span className="material-symbols-rounded">download</span>
                 <span>下载所有文件</span>
+              </button>
+              <button 
+                className="primary-button" 
+                onClick={() => {
+                  window.open(`${API_BASE_URL}/deploy/website?expectation_id=${expectation.id}`, '_blank');
+                }}
+              >
+                <span className="material-symbols-rounded">rocket_launch</span>
+                <span>部署网站</span>
               </button>
             </div>
           </div>
@@ -391,4 +413,4 @@ function CodeGeneration({ sessionId }) {
   );
 }
 
-export default CodeGeneration;    
+export default CodeGeneration;                              

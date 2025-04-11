@@ -351,6 +351,36 @@ async def get_token_usage():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/deploy/website")
+async def deploy_website(expectation_id: str):
+    """Deploy a generated website locally"""
+    try:
+        if MOCK_MODE and expectation_id.startswith("exp-test"):
+            return {
+                "status": "success",
+                "message": "Website deployed successfully",
+                "url": "http://localhost:5000",
+                "expectation_id": expectation_id
+            }
+        
+        
+        import subprocess
+        import os
+        
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                  "deployment", "deploy_blog.py")
+        
+        subprocess.Popen(["python", script_path])
+        
+        return {
+            "status": "success",
+            "message": "Website deployment started",
+            "url": "http://localhost:5000",
+            "expectation_id": expectation_id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""

@@ -791,13 +791,19 @@ expectation_id: test-creative-portfolio"""
         response = "As your product manager, I need to understand your requirements in more depth to provide the best solution for you.\n\n"
         
         has_industry_question = False
+        has_design_question = False
+        
         for point in uncertainty_points:
             if point.get("field") == "industry" or "industry" in point.get("question", "").lower():
                 has_industry_question = True
-                break
+            if point.get("field") == "design" or "design" in point.get("question", "").lower() or "ui" in point.get("question", "").lower() or "ux" in point.get("question", "").lower():
+                has_design_question = True
                 
         if not has_industry_question:
             response += "First, could you tell me which industry or domain this project belongs to? Understanding the industry context will help me provide more relevant suggestions and references.\n\n"
+        
+        if not has_design_question:
+            response += "Could you tell me about your design preferences? What kind of visual style are you looking for (modern, minimalist, colorful, etc.)? Do you have any color schemes or UI/UX patterns in mind? This will help ensure the generated solution meets your aesthetic expectations.\n\n"
         
         response += "Please help me clarify the following points:\n\n"
         
@@ -819,12 +825,22 @@ expectation_id: test-creative-portfolio"""
                     question = "In your view, what standards would indicate that this requirement has been successfully implemented? What operations should users be able to perform?"
                 elif field == "constraints":
                     question = "Do you have any constraints or special requirements for this project? For example, considerations regarding performance, compatibility, security, etc."
+                elif field == "design" or field == "ui" or field == "ux":
+                    question = "What design style do you prefer for this project? For example, modern, minimalist, colorful, corporate, etc. Are there any specific UI/UX patterns or websites that you like and want to emulate?"
                 else:
                     question = "Could you provide more details about this requirement? Especially scenarios of how you expect users to interact with the system."
                     
             response += f"{i+1}. {question}\n\n"
         
         response += "Additionally, are you familiar with similar solutions in the industry? What aspects of these solutions are worth learning from, or what shortcomings do they have that we should improve upon?\n\n"
+        
+        if "website" in str(uncertainty_points).lower() or "app" in str(uncertainty_points).lower() or "web" in str(uncertainty_points).lower() or "mobile" in str(uncertainty_points).lower():
+            response += "For the visual design aspects:\n\n"
+            response += "- What color scheme would you prefer (light, dark, colorful, monochrome, etc.)?\n"
+            response += "- How important is modern CSS styling and visual appeal in your project?\n"
+            response += "- Do you have any preferences for typography or font styles?\n"
+            response += "- Are there any specific animations or interactive elements you'd like to include?\n\n"
+        
         response += "Your detailed feedback will help me understand your requirements more accurately and design a solution that best meets your expectations."
             
         return response

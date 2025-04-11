@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ item.title }} - My Personal Website</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li><a href="{{ url_for('about') }}">About</a></li>
+                <li><a href="{{ url_for('portfolio') }}" class="active">Portfolio</a></li>
+                <li><a href="{{ url_for('blog') }}">Blog</a></li>
+                <li><a href="{{ url_for('contact') }}">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <section class="portfolio-item-single">
+        <div class="container">
+            <div class="portfolio-header">
+                <h1>{{ item.title }}</h1>
+                <div class="portfolio-meta">
+                    <span class="category">{{ item.category }}</span>
+                    <span class="client">Client: {{ item.client }}</span>
+                    <span class="date">Date: {{ item.date }}</span>
+                </div>
+            </div>
+            
+            <div class="portfolio-featured-image">
+                <img src="{{ item.image }}" alt="{{ item.title }}">
+            </div>
+            
+            <div class="portfolio-description">
+                <h2>Project Description</h2>
+                <p>{{ item.description }}</p>
+                
+                <h2>Project Details</h2>
+                <ul class="project-details">
+                    <li><strong>Client:</strong> {{ item.client }}</li>
+                    <li><strong>Category:</strong> {{ item.category }}</li>
+                    <li><strong>Date:</strong> {{ item.date }}</li>
+                </ul>
+                
+                <div class="project-navigation">
+                    <a href="{{ url_for('portfolio') }}" class="btn">Back to Portfolio</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 My Creative Portfolio</p>
+        </div>
+    </footer>
+</body>
+</html>

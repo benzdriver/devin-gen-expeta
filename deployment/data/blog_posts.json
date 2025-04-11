@@ -1,0 +1,52 @@
+[
+  {
+    "id": "post1",
+    "title": "Getting Started with Web Design",
+    "content": "Web design is the process of creating websites. It encompasses several different aspects, including webpage layout, content production, and graphic design.",
+    "excerpt": "Learn the basics of web design and how to get started on your journey.",
+    "date": "2025-04-01",
+    "author": "Jane Doe",
+    "featured_image": "https://via.placeholder.com/800x400?text=Web+Design",
+    "categories": [
+      "Design",
+      "Web Development"
+    ],
+    "comments": [
+      {
+        "name": "John Smith",
+        "email": "john@example.com",
+        "content": "Great article! Very helpful for beginners.",
+        "date": "2025-04-02 14:30:00"
+      }
+    ]
+  },
+  {
+    "id": "post2",
+    "title": "Color Theory in UI Design",
+    "content": "Color theory is both the science and art of using color. It explains how humans perceive color; and the visual effects of how colors mix, match or contrast with each other.",
+    "excerpt": "Discover how to use color theory to create more effective and appealing user interfaces.",
+    "date": "2025-04-05",
+    "author": "Jane Doe",
+    "featured_image": "https://via.placeholder.com/800x400?text=Color+Theory",
+    "categories": [
+      "Design",
+      "UI/UX"
+    ],
+    "comments": []
+  },
+  {
+    "id": "post3",
+    "title": "Responsive Design Principles",
+    "content": "Responsive web design is an approach to web design that makes web pages render well on a variety of devices and window or screen sizes.",
+    "excerpt": "Learn the key principles of responsive design to ensure your websites work on all devices.",
+    "date": "2025-04-10",
+    "author": "Jane Doe",
+    "featured_image": "https://via.placeholder.com/800x400?text=Responsive+Design",
+    "categories": [
+      "Design",
+      "Web Development",
+      "Mobile"
+    ],
+    "comments": []
+  }
+]
