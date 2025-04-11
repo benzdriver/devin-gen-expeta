@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>About - My Personal Website</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li><a href="{{ url_for('about') }}" class="active">About</a></li>
+                <li><a href="{{ url_for('portfolio') }}">Portfolio</a></li>
+                <li><a href="{{ url_for('blog') }}">Blog</a></li>
+                <li><a href="{{ url_for('contact') }}">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <section class="page-header">
+        <div class="container">
+            <h1>About Me</h1>
+            <p>Learn more about my background and expertise</p>
+        </div>
+    </section>
+    
+    <section class="about-content">
+        <div class="container">
+            <div class="about-grid">
+                <div class="about-image">
+                    <img src="https://via.placeholder.com/600x800?text=Profile+Photo" alt="Profile Photo">
+                </div>
+                <div class="about-text">
+                    <h2>My Story</h2>
+                    <p>I am a passionate designer with over 5 years of experience in creating beautiful and functional digital experiences. My journey in design started when I was studying computer science and discovered my passion for creating user-centered interfaces.</p>
+                    
+                    <p>Since then, I've worked with various clients from startups to established companies, helping them achieve their goals through thoughtful design solutions.</p>
+                    
+                    <h3>My Approach</h3>
+                    <p>I believe that good design is not just about aesthetics but also about solving problems. I approach each project with a focus on understanding the user needs and business goals to create designs that are both beautiful and effective.</p>
+                    
+                    <h3>Skills</h3>
+                    <ul class="skills-list">
+                        <li>UI/UX Design</li>
+                        <li>Web Design</li>
+                        <li>Brand Identity</li>
+                        <li>Prototyping</li>
+                        <li>User Research</li>
+                        <li>HTML/CSS</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 My Creative Portfolio</p>
+        </div>
+    </footer>
+</body>
+</html>

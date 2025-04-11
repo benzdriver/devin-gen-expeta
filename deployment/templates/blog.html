@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blog - My Personal Website</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li><a href="{{ url_for('about') }}">About</a></li>
+                <li><a href="{{ url_for('portfolio') }}">Portfolio</a></li>
+                <li><a href="{{ url_for('blog') }}" class="active">Blog</a></li>
+                <li><a href="{{ url_for('contact') }}">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <section class="page-header">
+        <div class="container">
+            <h1>Blog</h1>
+            <p>Thoughts, insights, and updates on design and creativity</p>
+        </div>
+    </section>
+    
+    <section class="blog-content">
+        <div class="container">
+            <div class="blog-grid">
+                {% for post in posts %}
+                <article class="blog-post">
+                    <div class="post-image">
+                        <img src="{{ post.featured_image }}" alt="{{ post.title }}">
+                    </div>
+                    <div class="post-content">
+                        <div class="post-meta">
+                            <span class="date">{{ post.date }}</span>
+                            <span class="categories">
+                                {% for category in post.categories %}
+                                <a href="{{ url_for('blog_category', category=category) }}">{{ category }}</a>
+                                {% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            </span>
+                        </div>
+                        <h2><a href="{{ url_for('blog_post', post_id=post.id) }}">{{ post.title }}</a></h2>
+                        <p>{{ post.excerpt }}</p>
+                        <a href="{{ url_for('blog_post', post_id=post.id) }}" class="read-more">Read More</a>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2023 My Creative Portfolio</p>
+        </div>
+    </footer>
+</body>
+</html>

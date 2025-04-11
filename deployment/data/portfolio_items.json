@@ -1,0 +1,32 @@
+[
+  {
+    "id": "project1",
+    "title": "E-commerce Website Redesign",
+    "description": "A complete redesign of an e-commerce platform focusing on user experience and conversion optimization.",
+    "image": "https://via.placeholder.com/800x600?text=E-commerce+Redesign",
+    "category": "Web Design",
+    "client": "Fashion Retailer",
+    "date": "2025-03-15",
+    "featured": true
+  },
+  {
+    "id": "project2",
+    "title": "Mobile App UI Design",
+    "description": "User interface design for a fitness tracking mobile application with a focus on clean, intuitive controls.",
+    "image": "https://via.placeholder.com/800x600?text=Mobile+App+UI",
+    "category": "UI/UX",
+    "client": "Health Tech Startup",
+    "date": "2025-02-20",
+    "featured": true
+  },
+  {
+    "id": "project3",
+    "title": "Brand Identity Design",
+    "description": "Complete brand identity including logo, color palette, typography, and brand guidelines.",
+    "image": "https://via.placeholder.com/800x600?text=Brand+Identity",
+    "category": "Branding",
+    "client": "Organic Food Company",
+    "date": "2025-01-10",
+    "featured": false
+  }
+]

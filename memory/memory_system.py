@@ -4,6 +4,7 @@ Memory System Module for Expeta 2.0
 This module provides storage and retrieval functionality for expectations,
 code generations, and validation results.
 """
+import time
 
 class MemorySystem:
     """Memory system, stores and retrieves system data"""
@@ -106,6 +107,24 @@ class MemorySystem:
             List of all stored expectations
         """
         return self.storage.retrieve("expectations", {})
+        
+    def store_generated_code(self, expectation_id, files):
+        """Store generated code files for an expectation
+        
+        Args:
+            expectation_id: ID of the expectation
+            files: List of file objects with path and content
+            
+        Returns:
+            Storage result
+        """
+        generation_data = {
+            "id": f"gen_{expectation_id}_{int(time.time())}",
+            "expectation_id": expectation_id,
+            "timestamp": time.time(),
+            "files": files
+        }
+        return self.record_generation(generation_data)
 
     def _create_default_storage(self):
         """Create default storage provider
